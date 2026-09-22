@@ -1,4 +1,4 @@
-# Demo Recorder 0.3 · Mac 本地测试版
+# Demo Recorder 0.3.1 · Mac 本地测试版
 
 用于团队快速录制功能演示：屏幕或窗口录制、可选麦克风、点击触发的自动聚焦、可调整的缩放片段、简单剪辑、MP4 / GIF 导出。本地保存原始视频与编辑记录，不上传数据。
 
@@ -32,7 +32,7 @@ MP4 输出 H.264、30 fps，有麦克风时保留音轨；GIF 可选 10/15/20 fp
 
 ## 从源码构建
 
-需要 Xcode / Swift 6 工具链。项目使用 Swift 5 语言兼容模式，无第三方运行时依赖。
+需要 Xcode / Swift 6 工具链，以及钥匙串中有效的 Apple Development 或 Developer ID Application 签名身份。项目使用 Swift 5 语言兼容模式，无第三方运行时依赖。
 
 ```sh
 swift test
@@ -41,7 +41,7 @@ swift test
 
 构建前请退出旧应用。可通过 `DEMO_OUTPUT_DIR` 指定独立输出目录，避免覆盖正在运行的构建。
 
-构建脚本生成本地应用图标、应用包和 ad-hoc 签名。核心在 `RecorderCore`，实际媒体流程在 `RecorderMedia`，界面在 `RecorderApp`。
+构建脚本生成本地应用图标、应用包和证书签名。只有一个可用签名身份时自动选择；多个身份时通过 `DEMO_SIGNING_IDENTITY` 指定证书名称或指纹。构建拒绝临时 ad-hoc 签名，避免每次更新造成录屏授权失效。核心在 `RecorderCore`，实际媒体流程在 `RecorderMedia`，界面在 `RecorderApp`。
 
 ## 当前验证与限制
 
@@ -54,3 +54,11 @@ Apple API 依据：[ScreenCaptureKit](https://developer.apple.com/documentation/
 ## 0.2 工程兼容性
 
 可打开 0.1 工程；分割、排序或聚焦拖拽后会保存为版本 2，含新的镜头片段动画信息。请用新版继续打开编辑后的工程，旧版不会读取版本 2。原始视频始终保留。
+
+## 录屏权限开启后仍被拒绝
+
+0.3.0 及更早的测试版使用临时签名，重新编译会改变系统识别的应用身份。0.3.1 起使用稳定证书签名。在本机统一从 `/Applications/Demo Recorder.app` 启动，避免打开旧构建。
+
+首次迁移到证书签名版本时，退出 Demo Recorder，在系统设置 → 隐私与安全性 → 录屏与系统录音中移除旧的 Demo Recorder 条目，再通过“+”添加“应用程序”里的新版并开启权限，随后重新打开应用。只处理 Demo Recorder，不重置其他应用权限。
+
+本机 Apple Development 签名用于开发验证；这不是 Developer ID 公证分发。更换签名团队或开发/分发证书类型可能再次需要授权。

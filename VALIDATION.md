@@ -5,7 +5,7 @@
 ## 环境与构建
 
 - macOS 15.7.1，Apple Silicon，Xcode / Swift 6.2.4，Swift 5 语言模式。
-- PASS：`swift test`，35 项 XCTest，0 失败（v0.3 可视化聚焦）。详见 docs/evidence/focus-tests.log。
+- PASS：`swift test`，37 项 XCTest，0 失败（v0.3.1 权限诊断与签名修复）。详见 docs/evidence/permission-tests.log。
 - PASS：`./scripts/build-app.sh`，release 编译、标准 `.app` 目录、应用图标、本机 ad-hoc 签名及签名校验。
 - PASS：最终打包应用已通过原生界面启动，重新打开保存的示例工程并生成预览。
 - 本轮最终编译与测试日志未出现 warning/error。
@@ -79,3 +79,14 @@
 - PASS：release 构建、独立测试应用启动、只读独立代码审查（无阻塞发现）。
 - NOT RUN：定位弹窗原生点击/拖动、应用/取消和撤销的完整端到端验证。打开专用素材时系统检测到用户操作，测试停止；未继续抢占输入。
 - 新版为 dist/v0.3/Demo Recorder.app，未覆盖用户正在运行的旧版本。真实录屏、公证和第二台 Mac 的限制仍然适用。
+
+## v0.3.1 TCC 签名不匹配修复
+
+- 系统设置实查：Demo Recorder 的“录屏与系统录音”开关开启。
+- 根因证据：TCC 日志于 09:57:20 报 `Failed to match existing code requirement`，目标 `local.demorecorder.mac`、服务 `kTCCServiceScreenCapture`；旧授权 cdhash 为 703b95d8…，运行副本为 92a6c81b…。旧版签名规则仅绑定构建散列。
+- PASS：修复前签名检查对 v0.3 的 ad-hoc 包返回失败；修复后 v0.3.1 与 /Applications 安装包通过证书签名校验。
+- PASS：用同一现有 Apple Development 证书签名两个不同版本，designated requirement 完全相同，见 signing-stability.log。未创建证书或修改钥匙串信任设置。
+- PASS：37 项 XCTest，包括拒绝授权时的当前应用路径/恢复提示、其他错误不误诊为权限错误。独立只读审查无阻塞发现。
+- PASS：旧版已正常退出，旧安装包已备份至 dist/backups；新版 /Applications/Demo Recorder.app 启动显示 0.3.1，最近工程保留。
+- PENDING：新版实际获取屏幕列表仍被旧 TCC 记录拒绝，需要用户移除旧条目并重新添加/开启新版的系统权限。未替用户开关权限、重置全局 TCC、修改数据库或系统保护。尚不能声称真实录制已恢复。
+- Apple 依据：https://developer.apple.com/documentation/technotes/tn3127-inside-code-signing-requirements ，以及 https://developer.apple.com/forums/thread/819406 中 Apple DTS 的确认。

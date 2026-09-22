@@ -81,7 +81,10 @@ final class AppModel: ObservableObject {
         do {
             sources = try await capture.sources()
             if !sources.contains(where:{$0.id == sourceID}) { sourceID = sources.first?.id ?? "" }
-        } catch { self.error = "无法读取屏幕和窗口：\(error.localizedDescription)\n请在系统设置 → 隐私与安全性 → 屏幕与系统音频录制中允许 Demo Recorder。" }
+        } catch {
+            sources = []; sourceID = ""
+            self.error = CapturePermissionGuidance.message(for:error,applicationPath:Bundle.main.bundleURL.path)
+        }
     }
     func newRecording() { guard !recording && !busy && !exporting && !quitting else { return }; player.pause(); page = .capture; Task { await refreshSources() } }
     private func projectParent() throws -> URL {

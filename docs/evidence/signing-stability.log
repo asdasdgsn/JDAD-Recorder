@@ -1,0 +1,2 @@
+PASS: v0.3 and v0.3.1 signed with the same development certificate have identical designated requirements.
+designated => identifier "local.demorecorder.mac" and anchor apple generic and certificate leaf[subject.CN] = "Apple Development: 540613819@qq.com (3W6CQQY8P9)" and certificate 1[field.1.2.840.113635.100.6.2.1] /* exists */
