@@ -13,7 +13,9 @@ final class AppModel: ObservableObject {
     @Published var sourceID = ""
     @Published var microphone = false
     @Published var microphoneID = ""
-    @Published var busy = false
+    @Published var busy = false {
+        didSet { guard oldValue != busy else { return }; if busy { busyToken = work.begin() } else if let token = busyToken { work.end(token); busyToken = nil } }
+    }
     @Published var recording = false
     @Published var countdown: Int?
     @Published var recordingStarted: Date?
@@ -27,11 +29,18 @@ final class AppModel: ObservableObject {
     @Published var selectedZoom: UUID?
     @Published var history = EditHistory()
     @Published var exportProgress = 0.0
-    @Published var exporting = false
+    @Published var exporting = false {
+        didSet { guard oldValue != exporting else { return }; if exporting { exportToken = work.begin() } else if let token = exportToken { work.end(token); exportToken = nil } }
+    }
     @Published var showExport = false
     @Published var recent: [URL] = []
     @Published var thumbnails: [NSImage] = []
     @Published var renderReady = false
+    private let work = CompletionGate()
+    private var busyToken: UUID?
+    private var exportToken: UUID?
+    private var quitting = false
+    private var pendingCaptureError: String?
     let player = AVPlayer()
     let capture = CaptureService()
     private var samples: [PointerSample] = []
@@ -52,13 +61,15 @@ final class AppModel: ObservableObject {
             }
         }
         capture.onUnexpectedStop = { [weak self] error in
-            guard let self, self.recording, !self.busy else { return }
+            guard let self else { return }
+            self.pendingCaptureError = error.localizedDescription
+            guard self.recording, !self.busy else { return }
             self.notice = "录制来源已停止，正在保存已有内容。\(error.localizedDescription)"
             Task { await self.stopRecording() }
         }
     }
     var duration: Double { project?.timeline.duration ?? 0 }
-    var canEdit: Bool { project != nil && !busy && !exporting && !recording }
+    var canEdit: Bool { project != nil && !busy && !exporting && !recording && !quitting }
     var canExport: Bool { canEdit && renderReady && duration > 0 }
     var microphones: [AVCaptureDevice] { CaptureService.microphones }
     func refreshSources() async {
@@ -69,7 +80,7 @@ final class AppModel: ObservableObject {
             if !sources.contains(where:{$0.id == sourceID}) { sourceID = sources.first?.id ?? "" }
         } catch { self.error = "无法读取屏幕和窗口：\(error.localizedDescription)\n请在系统设置 → 隐私与安全性 → 屏幕与系统音频录制中允许 Demo Recorder。" }
     }
-    func newRecording() { guard !recording && !busy && !exporting else { return }; player.pause(); page = .capture; Task { await refreshSources() } }
+    func newRecording() { guard !recording && !busy && !exporting && !quitting else { return }; player.pause(); page = .capture; Task { await refreshSources() } }
     private func projectParent() throws -> URL {
         let movies = FileManager.default.urls(for:.moviesDirectory,in:.userDomainMask).first!
         let folder = movies.appendingPathComponent("Demo Recorder",isDirectory:true)
@@ -77,8 +88,8 @@ final class AppModel: ObservableObject {
         return folder
     }
     func startRecording() async {
-        guard !busy, !recording, let source = sources.first(where:{$0.id == sourceID}) else { return }
-        busy = true
+        guard !busy, !recording, !quitting, let source = sources.first(where:{$0.id == sourceID}) else { return }
+        busy = true; pendingCaptureError = nil
         do {
             let name = Date().formatted(.dateTime.year().month(.twoDigits).day(.twoDigits).hour().minute().second()).replacingOccurrences(of:"/",with:"-").replacingOccurrences(of:":",with:"-")
             let folder = try ProjectStore.createFolder(in:projectParent(),name:name)
@@ -87,6 +98,7 @@ final class AppModel: ObservableObject {
             countdown = nil
             try await capture.start(source:source,microphone:microphone,deviceID:microphoneID.isEmpty ? nil : microphoneID,destination:folder.appendingPathComponent("media/original.mov"))
             recording = true; recordingStarted = Date(); busy = false
+            if let pendingCaptureError { notice = "录制启动遇到问题：\(pendingCaptureError)"; await stopRecording() }
         } catch { countdown = nil; busy = false; self.error = error.localizedDescription }
     }
     func stopRecording() async {
@@ -105,13 +117,13 @@ final class AppModel: ObservableObject {
         } catch { recording = false; busy = false; recordingStarted = nil; self.error = "保存录制失败：\(error.localizedDescription)\n已写入的素材保留在影片文件夹，可尝试导入恢复。" }
     }
     func openPanel() {
-        guard !recording && !busy && !exporting else { return }
+        guard !recording && !busy && !exporting && !quitting else { return }
         let panel = NSOpenPanel(); panel.canChooseDirectories = true; panel.canChooseFiles = true; panel.allowsMultipleSelection = false
         panel.message = "选择 .demorec 工程，或导入 MP4 / MOV 视频"
         if panel.runModal() == .OK, let url = panel.url { open(url) }
     }
     func open(_ url: URL) {
-        guard !recording && !busy && !exporting else { return }
+        guard !recording && !busy && !exporting && !quitting else { return }
         if url.pathExtension == "demorec" {
             if !FileManager.default.fileExists(atPath:url.appendingPathComponent("project.json").path) {
                 busy = true
@@ -199,7 +211,8 @@ final class AppModel: ObservableObject {
         if selectionOnly { var t = p.timeline; t.retain(outputRange:.init(start:selectionStart,end:selectionEnd)); p.kept = t.kept }
         let panel = NSSavePanel(); panel.allowedContentTypes = [settings.format == .gif ? .gif : .mpeg4Movie]; panel.nameFieldStringValue = p.name + "." + settings.format.rawValue
         guard panel.runModal() == .OK, let destination = panel.url else { return }
-        if destination.standardizedFileURL == sourceURL.standardizedFileURL || (root.map { destination.standardizedFileURL.path.hasPrefix($0.standardizedFileURL.path+"/") } ?? false) { error = "请导出到工程文件夹之外，以保留原始素材。"; return }
+        do { try ExportService.validateDestination(destination,sourceURL:sourceURL,projectRoot:root) }
+        catch { self.error = error.localizedDescription; return }
         showExport = false; exporting = true; exportProgress = 0; player.pause()
         let events = samples
         exportTask = Task {
@@ -211,5 +224,12 @@ final class AppModel: ObservableObject {
         }
     }
     func cancelExport() { exportTask?.cancel() }
+    func prepareToQuit() async {
+        quitting = true
+        if exporting { cancelExport() }
+        await work.wait()
+        if recording { await stopRecording() }
+        await work.wait()
+    }
 }
-func timeLabel(_ seconds: Double) -> String { let n = max(0,seconds.isFinite ? seconds : 0); return String(format:"%02d:%02d.%01d",Int(n)/60,Int(n)%60,Int(n*10)%10) }
+func timeLabel(_ seconds: Double) -> String { let n = min(Project.maximumDuration,max(0,seconds.isFinite ? seconds : 0)); return String(format:"%02d:%02d.%01d",Int(n)/60,Int(n)%60,Int(n*10)%10) }

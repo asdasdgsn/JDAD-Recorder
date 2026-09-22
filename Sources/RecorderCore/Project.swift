@@ -28,6 +28,7 @@ public struct ZoomSegment: Codable, Equatable, Hashable, Identifiable, Sendable 
     }
 }
 public struct Project: Codable, Equatable, Sendable {
+    public static let maximumDuration = 7.0 * 24 * 60 * 60
     public var version = 1
     public var name = "未命名演示"
     public var duration: Double
@@ -42,7 +43,7 @@ public struct Project: Codable, Equatable, Sendable {
     public var timeline: EditTimeline { EditTimeline(kept: kept) }
     public func validate() throws {
         guard version == 1 else { throw RecorderError.message("此工程版本暂不支持。") }
-        guard duration.isFinite, duration > 0 else { throw RecorderError.message("工程时长无效。") }
+        guard duration.isFinite, duration > 0, duration <= Self.maximumDuration else { throw RecorderError.message("工程时长无效。") }
         let path = sourceRelativePath as NSString
         guard !path.isAbsolutePath, !path.pathComponents.contains(".."), path.pathComponents.first == "media", path.pathComponents.count >= 2 else {
             throw RecorderError.message("工程素材路径无效。")

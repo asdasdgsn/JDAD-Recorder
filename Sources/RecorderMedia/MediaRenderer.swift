@@ -16,6 +16,8 @@ public enum MediaRenderer {
         guard project.timeline.duration > 0 else { throw RecorderError.message("请保留至少一段视频后再导出。") }
         let asset = AVURLAsset(url:sourceURL)
         guard let sourceVideo = try await asset.loadTracks(withMediaType:.video).first else { throw RecorderError.message("素材中没有可读取的视频。") }
+        let actualDuration = try await asset.load(.duration).seconds
+        guard actualDuration.isFinite, project.kept.allSatisfy({ $0.end <= actualDuration + 1.0/30 }) else { throw RecorderError.message("工程剪辑区间超出了实际视频时长。") }
         let natural = try await sourceVideo.load(.naturalSize)
         let transform = try await sourceVideo.load(.preferredTransform)
         let transformed = CGRect(origin:.zero,size:natural).applying(transform)

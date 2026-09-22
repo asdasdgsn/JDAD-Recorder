@@ -29,6 +29,7 @@ final class FrameWriter: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked 
     private var failure: Error?
     private var currentRect: CGRect?
     private var destinationRect: CGRect?
+    private var surfaceScale: CGFloat?
     private let outputSize: CGSize
     var onFailure: (@Sendable (Error) -> Void)?
     init(url: URL,width: Int,height: Int,microphone: Bool) throws {
@@ -50,6 +51,7 @@ final class FrameWriter: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked 
                   let status = attachments.first?[.status] as? Int, status == SCFrameStatus.complete.rawValue else { return }
             if let value = attachments.first?[.screenRect] as? NSValue { currentRect = value.rectValue }
             else if let dict = attachments.first?[.screenRect] as? [String:Any] { currentRect = CGRect(dictionaryRepresentation:dict as CFDictionary) }
+            surfaceScale = attachments.first?[.scaleFactor] as? CGFloat
             if let value = attachments.first?[.contentRect] as? NSValue { destinationRect = value.rectValue }
             else if let dict = attachments.first?[.contentRect] as? [String:Any] { destinationRect = CGRect(dictionaryRepresentation:dict as CFDictionary) }
             appendVideo(sampleBuffer)
@@ -70,15 +72,16 @@ final class FrameWriter: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked 
         }
     }
     private func fail(_ error: Error) { guard failure == nil else { return }; failure = error; onFailure?(error) }
-    func stream(_ stream: SCStream,didStopWithError error: Error) { onFailure?(error) }
+    func stream(_ stream: SCStream,didStopWithError error: Error) { queue.async { self.fail(error) } }
+    func failureSnapshot() -> Error? { queue.sync { failure } }
     func mapPoint(_ point: CGPoint, fallback: CGRect, windowFrame: CGRect?) -> CGPoint? {
         queue.sync {
             guard firstPTS != nil else { return nil }
             let rect = currentRect ?? fallback
             // Reject transient geometry while a moved/resized window is awaiting its next frame.
             if let actual = windowFrame, abs(actual.minX-rect.minX) > 2 || abs(actual.minY-rect.minY) > 2 || abs(actual.width-rect.width) > 2 || abs(actual.height-rect.height) > 2 { return nil }
-            guard let destinationRect else { return nil }
-            return PointerMapping.normalize(point:point,contentRect:rect,destinationRect:destinationRect,canvasSize:outputSize)
+            guard let destinationRect, let surfaceScale else { return nil }
+            return PointerMapping.normalize(point:point,contentRect:rect,destinationRect:destinationRect,canvasSize:outputSize,surfaceScale:surfaceScale)
         }
     }
     func finish(at stopTime: CMTime) async throws -> (Double,Double) {
@@ -111,6 +114,8 @@ final class FrameWriter: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked 
 
 @MainActor
 public final class CaptureService {
+    private var attempt = CaptureAttempt()
+    private var hasStartedCapture = false
     private var stream: SCStream?
     private var sink: FrameWriter?
     private var url: URL?
@@ -147,7 +152,15 @@ public final class CaptureService {
         config.captureMicrophone = microphone; config.microphoneCaptureDeviceID = deviceID
         config.scalesToFit = true; config.ignoreShadowsSingleWindow = true
         let writer = try FrameWriter(url:destination,width:config.width,height:config.height,microphone:microphone)
-        writer.onFailure = { [weak self] error in Task { @MainActor in self?.onUnexpectedStop?(error) } }
+        let generation = attempt.begin()
+        hasStartedCapture = false
+        writer.onFailure = { [weak self] error in
+            Task { @MainActor in
+                guard let self, self.attempt.generation == generation else { return }
+                self.attempt.fail(error.localizedDescription,generation:generation)
+                if self.hasStartedCapture { self.onUnexpectedStop?(error) }
+            }
+        }
         let stream = SCStream(filter:filter,configuration:config,delegate:writer)
         try stream.addStreamOutput(writer,type:.screen,sampleHandlerQueue:writer.queue)
         if microphone { try stream.addStreamOutput(writer,type:.microphone,sampleHandlerQueue:writer.queue) }
@@ -161,12 +174,20 @@ public final class CaptureService {
             }
             return writer?.mapPoint(point,fallback:sourceRect,windowFrame:actual)
         }
-        do { try await stream.startCapture() }
-        catch { pointer.stopMonitoring(); writer.cancel(); self.stream = nil; self.sink = nil; self.url = nil; throw error }
+        do {
+            try await stream.startCapture()
+            if let failure = writer.failureSnapshot() { throw failure }
+            if let failure = attempt.failure { throw RecorderError.message(failure) }
+            hasStartedCapture = true
+        } catch {
+            attempt.end(); hasStartedCapture = false
+            pointer.stopMonitoring(); try? await stream.stopCapture(); writer.cancel()
+            self.stream = nil; self.sink = nil; self.url = nil; throw error
+        }
     }
     public func stop() async throws -> CapturedRecording {
         guard let stream, let sink, let url else { throw RecorderError.message("当前没有录制。") }
-        self.stream = nil
+        self.stream = nil; attempt.end(); hasStartedCapture = false
         defer { pointer.stopMonitoring(); self.sink = nil; self.url = nil }
         let stoppedAt = CMClockGetTime(CMClockGetHostTimeClock())
         try? await stream.stopCapture()

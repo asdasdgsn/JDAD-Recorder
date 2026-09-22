@@ -1,9 +1,9 @@
 import Foundation
 import CoreGraphics
 public enum PointerMapping {
-    public static func normalize(point: CGPoint, contentRect: CGRect, destinationRect: CGRect, canvasSize: CGSize) -> CGPoint? {
-        guard let local = normalize(point:point,contentRect:contentRect),canvasSize.width > 0,canvasSize.height > 0,destinationRect.width > 0,destinationRect.height > 0 else { return nil }
-        let result = CGPoint(x:(destinationRect.minX+local.x*destinationRect.width)/canvasSize.width,y:(destinationRect.minY+local.y*destinationRect.height)/canvasSize.height)
+    public static func normalize(point: CGPoint, contentRect: CGRect, destinationRect: CGRect, canvasSize: CGSize, surfaceScale: CGFloat = 1) -> CGPoint? {
+        guard surfaceScale.isFinite, surfaceScale > 0, let local = normalize(point:point,contentRect:contentRect),canvasSize.width > 0,canvasSize.height > 0,destinationRect.width > 0,destinationRect.height > 0 else { return nil }
+        let result = CGPoint(x:(destinationRect.minX+local.x*destinationRect.width)*surfaceScale/canvasSize.width,y:(destinationRect.minY+local.y*destinationRect.height)*surfaceScale/canvasSize.height)
         guard result.x.isFinite, result.y.isFinite, (0...1).contains(result.x), (0...1).contains(result.y) else { return nil }
         return result
     }

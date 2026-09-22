@@ -74,3 +74,59 @@ extension CoreTests {
         XCTAssertEqual(track.evaluate(time:2.5).scale,1)
     }
 }
+
+extension CoreTests {
+    func testRejectsUnrepresentableProjectDuration() {
+        let p = Project(duration:1e100,sourceRelativePath:"media/original.mov")
+        XCTAssertThrowsError(try p.validate())
+    }
+    func testRetinaContentPointsConvertToOutputPixels() {
+        let p = PointerMapping.normalize(point:CGPoint(x:480,y:270),contentRect:CGRect(x:0,y:0,width:960,height:540),destinationRect:CGRect(x:0,y:0,width:960,height:540),canvasSize:CGSize(width:1920,height:1080),surfaceScale:2)
+        XCTAssertEqual(p,CGPoint(x:0.5,y:0.5))
+    }
+    @MainActor func testCompletionGateWaitsForExistingSaveAndCancellationCleanup() async {
+        let gate = CompletionGate()
+        let save = gate.begin(), export = gate.begin()
+        var completed = false
+        let waiter = Task { await gate.wait(); completed = true }
+        await Task.yield()
+        XCTAssertFalse(completed)
+        gate.end(save)
+        await Task.yield()
+        XCTAssertFalse(completed)
+        gate.end(export)
+        await waiter.value
+        XCTAssertTrue(completed)
+    }
+    func testCaptureAttemptRetainsEarlyFailureAndRejectsStaleCallback() {
+        var attempt = CaptureAttempt()
+        let first = attempt.begin()
+        attempt.fail("disk full",generation:first)
+        XCTAssertEqual(attempt.failure,"disk full")
+        attempt.end()
+        let second = attempt.begin()
+        attempt.fail("late old error",generation:first)
+        XCTAssertNil(attempt.failure)
+        attempt.fail("source lost",generation:second)
+        XCTAssertEqual(attempt.failure,"source lost")
+    }
+}
+
+extension CoreTests {
+    func testTenMinuteCameraTrackHasBoundedOutput() {
+        var samples: [PointerSample] = []
+        for i in 0..<36000 {
+            let time = Double(i) / 60.0
+            let x = Double(i % 600) / 600.0
+            samples.append(PointerSample(time:time,x:x,y:0.5,clicked:(i % 60 == 0)))
+        }
+        let zooms = AutoZoomPlanner.plan(samples:samples,duration:600)
+        let track = CameraTrack(segments:zooms,samples:samples)
+        for i in 0..<18000 {
+            let c = track.evaluate(time:Double(i)/30)
+            XCTAssertTrue(c.scale.isFinite)
+            XCTAssertGreaterThanOrEqual(c.centerX-0.5/c.scale,-0.000001)
+            XCTAssertLessThanOrEqual(c.centerX+0.5/c.scale,1.000001)
+        }
+    }
+}

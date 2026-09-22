@@ -1,0 +1,48 @@
+# Demo Recorder · Mac 本地测试版
+
+用于团队快速录制功能演示：屏幕或窗口录制、可选麦克风、点击触发的自动聚焦、可调整的缩放片段、简单剪辑、MP4 / GIF 导出。本地保存原始视频与编辑记录，不上传数据。
+
+## 运行
+
+- macOS 15 或以上。目前构建与自动化测试环境为 Apple Silicon；Intel 未验证。
+- 打开 `dist/Demo Recorder.app`。首次录制在系统设置 → 隐私与安全性 → 屏幕与系统音频录制中开启 Demo Recorder，然后重新打开应用或刷新列表。
+- 使用麦克风时，系统会单独询问麦克风权限；不需要声音可关闭此选项。
+- 这是本机 ad-hoc 签名的开发构建，未使用 Developer ID 签名或公证。不能把这个构建当作已完成团队分发的正式版本。
+
+## 使用
+
+1. 选择“录制新演示”，选择屏幕或窗口。按需开启麦克风并选择设备。
+2. 点击“开始录制”，倒计时后切换到要演示的窗口。
+3. 在应用或菜单栏点击停止，文件写入完成后进入编辑器。
+4. 拖动时间轴定位，拖动两端绿色手柄或输入秒数选区；“仅保留选区”可剪掉首尾，“删除选区”可移除中间片段。支持撤销和重做。
+5. 选择聚焦片段，调整开始/结束时间、中心与倍率，再点击“应用调整”。聚焦时间使用原始录屏的秒数，剪辑选区使用成片秒数。橙色表示手动聚焦，绿色表示自动聚焦。
+6. 点击导出，选择 MP4 或 GIF、画面尺寸与保存位置，可只导出当前选区。GIF 不含声音。
+
+MP4 输出 H.264、30 fps，有麦克风时保留音轨；GIF 可选 10/15/20 fps、最长边 640/960/1280，循环播放。输出保持素材比例，不默认放大低分辨率视频。
+
+## 工程与恢复
+
+新录制保存在 `~/Movies/Demo Recorder/`，每个 `.demorec` 是一个完整文件包。请移动整个工程，不单独移动内部视频。工程内含 `project.json`、`events.json` 和 `media/`。应用会自动保存编辑结果，原始视频不会因剪辑而改变。
+
+支持打开 `.demorec` 或导入已有视频。已有视频没有鼠标轨迹，可手动添加聚焦。异常退出后，可读但未形成工程的录制会出现在资料库；打开时尝试恢复视频。无法读取的媒体仍保留在原位置，不保证系统崩溃前的所有内容都能恢复。
+
+没有采集到点击时应用会提示，不会假装生成自动缩放。鼠标移到录制范围之外不会触发聚焦；移动/缩放窗口时暂时无效的坐标会被跳过。工程支持最长 7 天的有限时长以避免损坏元数据导致崩溃；这不代表已经完成 7 天连续录制测试。
+
+## 从源码构建
+
+需要 Xcode / Swift 6 工具链。项目使用 Swift 5 语言兼容模式，无第三方运行时依赖。
+
+```sh
+swift test
+./scripts/build-app.sh
+```
+
+构建脚本生成本地应用图标、应用包和 ad-hoc 签名。核心在 `RecorderCore`，实际媒体流程在 `RecorderMedia`，界面在 `RecorderApp`。
+
+## 当前验证与限制
+
+详见 `VALIDATION.md`。自动化测试实际编码和解码 MP4/GIF，验证裁剪、聚焦位置、音频同步、取消保护和恢复；也已通过界面完成示例工程裁剪、撤销、GIF 导出。
+
+真实屏幕与麦克风录制仍需系统授权后验证，尤其是 Retina 实际帧信息、窗口移动/改尺寸、多显示器和长录制。没有云分享、系统音频、摄像头、字幕或 Windows 版本。团队分发还需要 Developer ID 签名、公证及第二台 Mac 的安装验证。
+
+Apple API 依据：[ScreenCaptureKit](https://developer.apple.com/documentation/screencapturekit)、[帧信息](https://developer.apple.com/documentation/screencapturekit/scstreamframeinfo)、[AVFoundation](https://developer.apple.com/documentation/avfoundation)、[ImageIO](https://developer.apple.com/documentation/imageio)。

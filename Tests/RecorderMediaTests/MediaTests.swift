@@ -170,3 +170,41 @@ extension MediaTests {
         XCTAssertEqual(second,1.5,accuracy:0.1)
     }
 }
+
+extension MediaTests {
+    func testExportRefusesSymlinkToOriginal() async throws {
+        let dir = try temporaryFolder(), media = dir.appendingPathComponent("project/media")
+        try FileManager.default.createDirectory(at:media,withIntermediateDirectories:true)
+        let source = media.appendingPathComponent("original.mp4")
+        let sentinel = Data("original unchanged".utf8); try sentinel.write(to:source)
+        let alias = dir.appendingPathComponent("alias")
+        try FileManager.default.createSymbolicLink(at:alias,withDestinationURL:media)
+        XCTAssertThrowsError(try ExportService.validateDestination(alias.appendingPathComponent("original.mp4"),sourceURL:source,projectRoot:dir.appendingPathComponent("project")))
+        XCTAssertEqual(try Data(contentsOf:source),sentinel)
+    }
+}
+
+private final class ExportCancellation: @unchecked Sendable {
+    private let lock = NSLock()
+    private var task: Task<Void,Error>?
+    func install(_ task: Task<Void,Error>) { lock.lock(); self.task = task; lock.unlock() }
+    func cancel() { lock.lock(); let running = task; lock.unlock(); running?.cancel() }
+}
+extension MediaTests {
+    func testMidGIFCancellationRemovesTemporaryFilesAndPreservesDestination() async throws {
+        let dir = try temporaryFolder(), source = dir.appendingPathComponent("source.mov"), destination = dir.appendingPathComponent("existing.gif")
+        try await fixture(source)
+        let sentinel = Data("keep me".utf8); try sentinel.write(to:destination)
+        let cancellation = ExportCancellation()
+        let task = Task {
+            try await ExportService.export(project:Project(duration:4,sourceRelativePath:"media/original.mov"),samples:[],sourceURL:source,settings:.init(format:.gif,longEdge:320,fps:20),destination:destination) { value in
+                if value > 0 { cancellation.cancel() }
+            }
+        }
+        cancellation.install(task)
+        do { try await task.value; XCTFail("Must cancel after beginning GIF rendering") } catch is CancellationError {} catch { XCTFail("Unexpected failure: \(error)") }
+        XCTAssertEqual(try Data(contentsOf:destination),sentinel)
+        let files = try FileManager.default.contentsOfDirectory(atPath:dir.path)
+        XCTAssertFalse(files.contains(where:{$0.hasPrefix(".demo-export-")}))
+    }
+}

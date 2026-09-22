@@ -33,11 +33,10 @@ struct DemoRecorderApp: App {
     func applicationDidFinishLaunching(_ notification: Notification) { NSApp.setActivationPolicy(.regular); NSApp.activate(ignoringOtherApps:true) }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let model else { return .terminateNow }
-        if model.recording {
-            Task { await model.stopRecording(); NSApp.reply(toApplicationShouldTerminate:true) }
+        if model.recording || model.busy || model.exporting {
+            Task { await model.prepareToQuit(); NSApp.reply(toApplicationShouldTerminate:true) }
             return .terminateLater
         }
-        if model.exporting { model.cancelExport() }
         return .terminateNow
     }
 }
