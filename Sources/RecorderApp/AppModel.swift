@@ -227,6 +227,26 @@ final class AppModel: ObservableObject {
             p.zooms[i] = updated
         }
     } }
+    func focusReferenceFrame(for zoom: ZoomSegment) async throws -> NSImage {
+        guard let p = project, let sourceURL else { throw RecorderError.message("请先打开工程。") }
+        player.pause()
+        let time: Double
+        if let current = p.timeline.sourceTime(at:position), current >= zoom.start, current < zoom.end {
+            time = current
+        } else if let span = p.kept.first(where: { max($0.start,zoom.start) < min($0.end,zoom.end) }) {
+            time = (max(span.start,zoom.start)+min(span.end,zoom.end))/2
+        } else {
+            throw RecorderError.message("此聚焦所在的视频已经被裁掉，请选择保留片段中的聚焦。")
+        }
+        let generator = AVAssetImageGenerator(asset:AVURLAsset(url:sourceURL))
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width:1920,height:1920)
+        generator.requestedTimeToleranceBefore = .zero
+        generator.requestedTimeToleranceAfter = .zero
+        let image = try await generator.image(at:CMTime(seconds:time,preferredTimescale:60000)).image
+        try Task.checkCancellation()
+        return NSImage(cgImage:image,size:CGSize(width:image.width,height:image.height))
+    }
     func deleteZoom(_ id: UUID) { edit { $0.zooms.removeAll{$0.id == id} }; selectedZoom = nil }
     func seek(_ value: Double) { position = min(duration,max(0,value)); player.seek(to:CMTime(seconds:position,preferredTimescale:60000),toleranceBefore:.zero,toleranceAfter:.zero) }
     func togglePlay() { guard renderReady else { return }; if player.rate > 0 { player.pause() } else { if position >= duration-0.05 { seek(0) }; player.play() } }

@@ -20,3 +20,6 @@ Implementation: ordered source spans, frame-aligned splits, snapshot-based drag 
 Regression evidence: automatic follow interpolation immediately before a cut failed before extending fragment track sampling through the original envelope; correction passes. Full suite now 31 tests including actual reordered MP4/GIF pixel checks and audio pulse alignment.
 Fresh independent read-only review: no blockers; P3 split selection mismatch corrected. Native gesture end-to-end remains unverified because user input interrupted the attempted automation. Do not claim this as passed.
 Delivery: build separately into dist/v0.2 to preserve the running app and the user's active project. No user project or source recording reset.
+
+v0.3 bounded visual focus request: followed existing direct-development authorization. Replaced XY sliders with a source-frame positioning sheet, normalized crop geometry, live magnified result, explicit apply/cancel and existing undo integration. No new persistence schema.
+TDD: four coordinate tests first failed on missing FocusFraming; implementation passes all 35 tests. Fresh read-only review found no blockers. Native UI test stopped after external user input while opening the isolated generated fixture; no claim of full gesture verification. Build packaged separately from active user app.

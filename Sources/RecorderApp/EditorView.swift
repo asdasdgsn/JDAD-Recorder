@@ -36,7 +36,7 @@ struct EditorView: View {
                     VStack(alignment:.leading,spacing:20) {
                         Text("操作聚焦").font(.headline)
                         Toggle("自动缩放",isOn:Binding(get:{model.project?.automaticZoomEnabled ?? true},set:{value in model.edit{$0.automaticZoomEnabled = value}})).font(.system(size:12))
-                        Text("点击会触发平滑放大。选中片段可以调整画面中心与倍率。").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                        Text("点击会触发平滑放大。选中聚焦片段，点击「在画面中定位」直接选择放大区域。").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
                         HStack { Button("添加聚焦") { model.addZoom() }; Button { regenerateConfirm = true } label: { Image(systemName:"arrow.clockwise") }.help("重新生成自动聚焦") }
                         Divider()
                         if let z = model.project?.zooms.first(where:{$0.id == model.selectedZoom}) {
@@ -91,6 +91,7 @@ struct EditorView: View {
 struct ZoomInspector: View {
     @EnvironmentObject var model: AppModel
     @State var zoom: ZoomSegment
+    @State private var showPositionEditor = false
     var body: some View {
         VStack(alignment:.leading,spacing:14) {
             HStack { Text("聚焦设置").font(.system(size:12,weight:.semibold)); Spacer(); Text(zoom.manual ? "手动" : "自动").font(.caption).foregroundStyle(.secondary) }
@@ -98,12 +99,15 @@ struct ZoomInspector: View {
             HStack { TextField("开始",value:$zoom.start,format:.number.precision(.fractionLength(2))); Text("—"); TextField("结束",value:$zoom.end,format:.number.precision(.fractionLength(2))) }.textFieldStyle(.roundedBorder)
             HStack { Text("缩放倍率"); Spacer(); Text(String(format:"%.1f×",zoom.scale)).foregroundStyle(accent) }.font(.caption)
             Slider(value:$zoom.scale,in:1...3,step:0.1)
-            Text("画面中心 · 水平").font(.caption).foregroundStyle(.secondary)
-            Slider(value:$zoom.centerX,in:0...1)
-            Text("画面中心 · 垂直").font(.caption).foregroundStyle(.secondary)
-            Slider(value:$zoom.centerY,in:0...1)
+            Button { showPositionEditor = true } label: {
+                Label("在画面中定位",systemImage:"viewfinder").frame(maxWidth:.infinity)
+            }.controlSize(.large)
+            Text("在完整画面上点击或拖动聚焦框，实时查看放大效果。").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             Button("应用调整") { zoom.manual = true; model.updateZoom(zoom) }.buttonStyle(.borderedProminent)
             Button("删除此聚焦",role:.destructive) { model.deleteZoom(zoom.id) }.font(.caption)
+        }
+        .sheet(isPresented:$showPositionEditor) {
+            FocusPositionEditor(zoom:zoom)
         }
     }
 }
