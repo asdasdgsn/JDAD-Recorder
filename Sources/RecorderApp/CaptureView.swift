@@ -13,7 +13,7 @@ struct CaptureView: View {
                 else if model.recording {
                     Text("正在录制").font(.title2)
                     if let started = model.recordingStarted { Text(started,style:.timer).font(.system(size:36,weight:.light,design:.monospaced)) }
-                    Text("你可以切换到演示窗口，菜单栏也可以停止录制。").font(.caption).foregroundStyle(.secondary)
+                    Text("点击屏幕顶部的悬浮按钮停止录制，菜单栏也可停止。").font(.caption).foregroundStyle(.secondary)
                     Button { Task { await model.stopRecording() } } label: { Label(model.busy ? "正在保存…" : "停止录制并编辑",systemImage:"stop.fill").padding(.horizontal,20).padding(.vertical,8) }.buttonStyle(.borderedProminent).disabled(model.busy)
                 } else {
                     VStack(alignment:.leading,spacing:18) {

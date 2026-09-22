@@ -25,6 +25,7 @@ final class AppModel: ObservableObject {
     @Published var captureRegion: CGRect?
     private var regionDisplayBounds: CGRect?
     private let regionSelector = RegionSelector()
+    private let recordingControls = RecordingControls()
     @Published var microphone = false
     @Published var microphoneID = ""
     @Published var busy = false {
@@ -153,11 +154,33 @@ final class AppModel: ObservableObject {
             countdown = nil
             try await capture.start(source:source,microphone:microphone,deviceID:microphoneID.isEmpty ? nil : microphoneID,destination:folder.appendingPathComponent("media/original.mov"),region:selectedRegion)
             recording = true; recordingStarted = Date(); busy = false
+            let targetScreen = NSScreen.screens.max { a, b in
+                func overlap(_ screen: NSScreen) -> CGFloat {
+                    guard let id = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value else { return 0 }
+                    if source.display?.displayID == id { return .greatestFiniteMagnitude }
+                    guard let window = source.window else { return 0 }
+                    let intersection = CGDisplayBounds(id).intersection(window.frame)
+                    return intersection.isNull ? 0 : intersection.width * intersection.height
+                }
+                return overlap(a) < overlap(b)
+            } ?? NSScreen.main
+            if let targetScreen, let recordingStarted {
+                recordingControls.show(on: targetScreen, started: recordingStarted) { [weak self] in
+                    Task { await self?.stopRecording() }
+                }
+            }
             if let pendingCaptureError { notice = "录制启动遇到问题：\(pendingCaptureError)"; await stopRecording() }
-        } catch { countdown = nil; busy = false; self.error = error.localizedDescription }
+        } catch { recordingControls.hide(); countdown = nil; busy = false; self.error = error.localizedDescription }
     }
     func stopRecording() async {
         guard recording, !busy else { return }; busy = true
+        recordingControls.hide()
+        defer {
+            if !quitting {
+                NSApp.activate(ignoringOtherApps: true)
+                NSApp.windows.first(where: { $0.canBecomeMain })?.makeKeyAndOrderFront(nil)
+            }
+        }
         do {
             let result = try await capture.stop()
             guard let folder = activeRecordingRoot else { throw RecorderError.message("工程目录丢失。") }

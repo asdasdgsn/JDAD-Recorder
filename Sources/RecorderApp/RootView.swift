@@ -30,7 +30,7 @@ struct RootView: View {
                     .contentShape(RoundedRectangle(cornerRadius:8))
                 }.buttonStyle(.plain).foregroundStyle(accent)
                     .help("在浏览器中打开更多应用与功能")
-                Text("MAC EDITION  /  \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.4.3")").font(.system(size:9,weight:.medium,design:.monospaced)).foregroundStyle(.tertiary).padding(.bottom,16)
+                Text("MAC EDITION  /  \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.4.4")").font(.system(size:9,weight:.medium,design:.monospaced)).foregroundStyle(.tertiary).padding(.bottom,16)
             }.padding(.horizontal,18).frame(width:196).background(Color.black.opacity(0.15))
             Rectangle().fill(.white.opacity(0.06)).frame(width:1)
             VStack(spacing:0) {
