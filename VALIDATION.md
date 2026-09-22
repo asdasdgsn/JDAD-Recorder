@@ -107,3 +107,7 @@
 - PASS：release 构建及签名校验；与 /Applications 中旧版 designated requirement 完全相同。
 - PASS：DMG 校验、只读挂载、镜像内应用签名、Applications 链接和安装说明检查。
 - 包适用于 arm64 / macOS 15+；没有 Developer ID 签名或 Apple 公证，其他 Mac 可能被 Gatekeeper 拦截，未声称正式分发或第二台 Mac 验收通过。
+
+## 0.4.2 左下角应用入口
+
+新增原生 Link 按钮“发现更多应用与功能”，目标为 https://jdauto.joyapp.jd.com/ ，位于左侧栏底部版本号上方。使用系统默认浏览器处理链接。该小改动通过 release 构建、签名校验和 DMG 完整性校验；未新增重复实现的单元测试。

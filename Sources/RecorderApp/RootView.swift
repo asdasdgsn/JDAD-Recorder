@@ -18,7 +18,19 @@ struct RootView: View {
                     Label("本地工作空间",systemImage:"internaldrive").font(.system(size:12,weight:.medium))
                     Text("录制 · 聚焦 · 分享").font(.system(size:11)).foregroundStyle(.secondary)
                 }.padding(14).frame(maxWidth:.infinity,alignment:.leading).background(.white.opacity(0.035),in:RoundedRectangle(cornerRadius:10))
-                Text("MAC EDITION  /  0.4.1").font(.system(size:9,weight:.medium,design:.monospaced)).foregroundStyle(.tertiary).padding(.bottom,16)
+                Link(destination:URL(string:"https://jdauto.joyapp.jd.com/")!) {
+                    HStack(spacing:6) {
+                        Text("发现更多应用与功能").font(.system(size:12,weight:.medium)).lineLimit(1)
+                        Spacer(minLength:0)
+                        Image(systemName:"arrow.up.right").font(.system(size:10,weight:.semibold))
+                    }
+                    .padding(.horizontal,10).padding(.vertical,12)
+                    .frame(maxWidth:.infinity,alignment:.leading)
+                    .background(accent.opacity(0.10),in:RoundedRectangle(cornerRadius:8))
+                    .contentShape(RoundedRectangle(cornerRadius:8))
+                }.buttonStyle(.plain).foregroundStyle(accent)
+                    .help("在浏览器中打开更多应用与功能")
+                Text("MAC EDITION  /  0.4.2").font(.system(size:9,weight:.medium,design:.monospaced)).foregroundStyle(.tertiary).padding(.bottom,16)
             }.padding(.horizontal,18).frame(width:196).background(Color.black.opacity(0.15))
             Rectangle().fill(.white.opacity(0.06)).frame(width:1)
             VStack(spacing:0) {

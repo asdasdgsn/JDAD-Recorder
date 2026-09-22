@@ -1,11 +1,11 @@
-# JDAD Recorder 0.4.1 · Mac 本地测试版
+# JDAD Recorder 0.4.2 · Mac 本地测试版
 
 用于团队快速录制功能演示：屏幕、窗口或框选区域录制、可选麦克风、点击触发的自动聚焦、可调整的缩放片段、简单剪辑、MP4 / GIF 导出。本地保存原始视频与编辑记录，不上传数据。
 
 ## 运行
 
 - macOS 15 或以上。目前构建与自动化测试环境为 Apple Silicon；Intel 未验证。
-- 打开 `dist/v0.4.1/JDAD Recorder.app`。首次录制在系统设置 → 隐私与安全性 → 屏幕与系统音频录制中开启 Demo Recorder，然后重新打开应用或刷新列表。
+- 打开 `dist/v0.4.2/JDAD Recorder.app`。首次录制在系统设置 → 隐私与安全性 → 屏幕与系统音频录制中开启 Demo Recorder，然后重新打开应用或刷新列表。
 - 使用麦克风时，系统会单独询问麦克风权限；不需要声音可关闭此选项。
 - 这是本机 ad-hoc 签名的开发构建，未使用 Developer ID 签名或公证。不能把这个构建当作已完成团队分发的正式版本。
 
@@ -72,3 +72,7 @@ Apple API 依据：[ScreenCaptureKit](https://developer.apple.com/documentation/
 ## 0.4.1 应用更名
 
 应用名称已改为 JDAD Recorder。内部应用标识、工程格式和旧的影片 / Demo Recorder 保存目录保持不变，以延续已有工程与权限识别。分享包为 JDAD-Recorder-0.4.1-Mac-arm64.dmg，适用于 Apple Silicon、macOS 15+。当前仅有 Apple Development 签名，未完成 Developer ID 公证，不能作为免拦截的正式分发包。
+
+## 0.4.2 更多应用入口
+
+左下角新增“发现更多应用与功能”，点击后通过默认浏览器打开 https://jdauto.joyapp.jd.com/ 。
