@@ -21,7 +21,7 @@ if [ "$SIGNING_IDENTITY" = '-' ]; then
 fi
 swift build -c release
 OUTPUT_DIR="${DEMO_OUTPUT_DIR:-$(pwd)/dist}"
-APP="$OUTPUT_DIR/Demo Recorder.app"
+APP="$OUTPUT_DIR/JDAD Recorder.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/DemoRecorder "$APP/Contents/MacOS/DemoRecorder"
 ICONSET="$OUTPUT_DIR/AppIcon.iconset"

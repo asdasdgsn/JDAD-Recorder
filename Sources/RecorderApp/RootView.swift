@@ -7,7 +7,7 @@ struct RootView: View {
     var body: some View {
         HStack(spacing:0) {
             VStack(alignment:.leading,spacing:26) {
-                HStack(spacing:10) { Image(systemName:"record.circle").font(.title).foregroundStyle(accent); VStack(alignment:.leading,spacing:2) { Text("DEMO").font(.system(size:18,weight:.bold,design:.rounded)); Text("RECORDER").font(.system(size:9,weight:.medium)).tracking(2.5).foregroundStyle(.secondary) } }.padding(.top,24)
+                HStack(spacing:10) { Image(systemName:"record.circle").font(.title).foregroundStyle(accent); VStack(alignment:.leading,spacing:2) { Text("JDAD").font(.system(size:18,weight:.bold,design:.rounded)); Text("RECORDER").font(.system(size:9,weight:.medium)).tracking(2.5).foregroundStyle(.secondary) } }.padding(.top,24)
                 VStack(spacing:6) {
                     nav("演示资料库",icon:"square.grid.2x2",page:.library)
                     nav("录制新演示",icon:"record.circle",page:.capture)
@@ -18,7 +18,7 @@ struct RootView: View {
                     Label("本地工作空间",systemImage:"internaldrive").font(.system(size:12,weight:.medium))
                     Text("录制 · 聚焦 · 分享").font(.system(size:11)).foregroundStyle(.secondary)
                 }.padding(14).frame(maxWidth:.infinity,alignment:.leading).background(.white.opacity(0.035),in:RoundedRectangle(cornerRadius:10))
-                Text("MAC EDITION  /  0.4").font(.system(size:9,weight:.medium,design:.monospaced)).foregroundStyle(.tertiary).padding(.bottom,16)
+                Text("MAC EDITION  /  0.4.1").font(.system(size:9,weight:.medium,design:.monospaced)).foregroundStyle(.tertiary).padding(.bottom,16)
             }.padding(.horizontal,18).frame(width:196).background(Color.black.opacity(0.15))
             Rectangle().fill(.white.opacity(0.06)).frame(width:1)
             VStack(spacing:0) {

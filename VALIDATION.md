@@ -100,3 +100,10 @@
 - PASS：切换指定区域，未框选前开始录制禁用；点击框选打开透明浮层；Escape 取消后返回空闲录制界面。
 - NOT RUN：完整区域拖动→确认→实录→成片边界验证。原生自动化在全屏浮层返回 windowNotFoundAtPosition，无法发出拖动；已退出浮层，没有将该尝试记为成功。多显示器/混合 Retina 实录同样尚未验证。
 - 代码使用 ScreenCaptureKit 的 sourceRect（显示器局部逻辑点）直接裁切来源，鼠标采样按全局裁切矩形归一化；这两者通过几何测试，但仍需真实录制的像素核验。
+
+## 0.4.1 更名及分享安装包
+
+- 应用名称、窗口、菜单栏、侧栏标识改为 JDAD Recorder；保留内部 bundle ID、证书身份、工程格式和旧媒体保存目录。
+- PASS：release 构建及签名校验；与 /Applications 中旧版 designated requirement 完全相同。
+- PASS：DMG 校验、只读挂载、镜像内应用签名、Applications 链接和安装说明检查。
+- 包适用于 arm64 / macOS 15+；没有 Developer ID 签名或 Apple 公证，其他 Mac 可能被 Gatekeeper 拦截，未声称正式分发或第二台 Mac 验收通过。
