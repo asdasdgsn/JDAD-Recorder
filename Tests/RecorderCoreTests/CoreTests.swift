@@ -56,3 +56,21 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(h.redo(current: p)?.kept, edited.kept)
     }
 }
+
+extension CoreTests {
+    func testLetterboxedWindowMappingUsesActualContentRectangle() {
+        // A square window in a 1600x900 output occupies x=350...1250.
+        let p = PointerMapping.normalize(point:CGPoint(x:100,y:100),contentRect:CGRect(x:100,y:100,width:900,height:900),destinationRect:CGRect(x:350,y:0,width:900,height:900),canvasSize:CGSize(width:1600,height:900))
+        XCTAssertEqual(p?.x,0.21875)
+        XCTAssertEqual(p?.y,0)
+    }
+    func testCameraTrackUsesSourceTimeAfterCut() {
+        let z = ZoomSegment(start:6,end:8,centerX:0.8,centerY:0.5,scale:2,manual:true)
+        let track = CameraTrack(segments:[z],samples:[])
+        let timeline = EditTimeline(kept:[.init(start:0,end:2),.init(start:6,end:8)])
+        let c = track.evaluate(time:timeline.sourceTime(at:2.5)!)
+        XCTAssertEqual(c.scale,2)
+        XCTAssertEqual(c.centerX,0.75)
+        XCTAssertEqual(track.evaluate(time:2.5).scale,1)
+    }
+}

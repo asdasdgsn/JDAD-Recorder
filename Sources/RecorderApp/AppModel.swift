@@ -46,6 +46,11 @@ final class AppModel: ObservableObject {
         observer = player.addPeriodicTimeObserver(forInterval:CMTime(seconds:0.05,preferredTimescale:600),queue:.main) { [weak self] time in
             MainActor.assumeIsolated { guard time.seconds.isFinite else { return }; self?.position = time.seconds }
         }
+        if let parent = try? projectParent(), let folders = try? FileManager.default.contentsOfDirectory(at:parent,includingPropertiesForKeys:nil) {
+            for folder in folders where folder.pathExtension == "demorec" && FileManager.default.fileExists(atPath:folder.appendingPathComponent("recording.inprogress").path) {
+                if !recent.contains(folder) { recent.insert(folder,at:0) }
+            }
+        }
         capture.onUnexpectedStop = { [weak self] error in
             guard let self, self.recording, !self.busy else { return }
             self.notice = "录制来源已停止，正在保存已有内容。\(error.localizedDescription)"
@@ -107,7 +112,12 @@ final class AppModel: ObservableObject {
     }
     func open(_ url: URL) {
         guard !recording && !busy && !exporting else { return }
-        if url.pathExtension == "demorec" { do { try load(url) } catch { self.error = error.localizedDescription } }
+        if url.pathExtension == "demorec" {
+            if !FileManager.default.fileExists(atPath:url.appendingPathComponent("project.json").path) {
+                busy = true
+                Task { defer { busy = false }; do { _ = try await ProjectStore.recover(url); try load(url); notice = "已恢复可读取的视频；未完成保存的鼠标轨迹无法恢复，可手动添加聚焦。" } catch { self.error = error.localizedDescription } }
+            } else { do { try load(url) } catch { self.error = error.localizedDescription } }
+        }
         else { Task { await importVideo(url) } }
     }
     func load(_ url: URL) throws {

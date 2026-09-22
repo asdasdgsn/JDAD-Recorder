@@ -59,6 +59,14 @@ final class MediaTests: XCTestCase {
         let gifFrame = try XCTUnwrap(CGImageSourceCreateImageAtIndex(imageSource,17,nil))
         context.render(CIImage(cgImage:gifFrame),toBitmap:&pixel,rowBytes:4,bounds:CGRect(x:160,y:90,width:1,height:1),format:.RGBA8,colorSpace:CGColorSpaceCreateDeviceRGB())
         XCTAssertGreaterThan(pixel[1],150,"GIF must use the same zoom as MP4")
+        if let path = ProcessInfo.processInfo.environment["DEMO_QA_OUTPUT"] {
+            let root = URL(fileURLWithPath:path)
+            try FileManager.default.createDirectory(at:root.appendingPathComponent("media"),withIntermediateDirectories:true)
+            let target = root.appendingPathComponent("media/original.mov")
+            if !FileManager.default.fileExists(atPath:target.path) { try FileManager.default.copyItem(at:source,to:target) }
+            p.name = "示例演示 · 聚焦与剪辑验证"
+            try ProjectStore.save(p,samples:[],to:root)
+        }
     }
     func testCancelledExportPreservesExistingDestination() async throws {
         let dir = try temporaryFolder(), source = dir.appendingPathComponent("source.mov"), dest = dir.appendingPathComponent("existing.mp4")
@@ -82,5 +90,83 @@ final class MediaTests: XCTestCase {
         let loaded = try ProjectStore.open(moved)
         XCTAssertEqual(loaded.project,p)
         XCTAssertTrue(FileManager.default.fileExists(atPath:loaded.sourceURL.path))
+    }
+}
+
+extension MediaTests {
+    func testRecordingRetainsStaticTail() async throws {
+        let dir = try temporaryFolder(), source = dir.appendingPathComponent("source.mov"), target = dir.appendingPathComponent("static.mov")
+        try await fixture(source)
+        let asset = AVURLAsset(url:source)
+        let tracks = try await asset.loadTracks(withMediaType:.video)
+        let reader = try AVAssetReader(asset:asset)
+        let output = AVAssetReaderTrackOutput(track:tracks[0],outputSettings:[kCVPixelBufferPixelFormatTypeKey as String:kCVPixelFormatType_32BGRA])
+        reader.add(output); XCTAssertTrue(reader.startReading())
+        let sample = try XCTUnwrap(output.copyNextSampleBuffer())
+        let sink = try FrameWriter(url:target,width:320,height:180,microphone:false)
+        sink.queue.sync { sink.appendVideo(sample) }
+        _ = try await sink.finish(at:CMTime(seconds:2,preferredTimescale:600))
+        let duration = try await AVURLAsset(url:target).load(.duration).seconds
+        XCTAssertEqual(duration,2+1.0/30,accuracy:1.0/30,"Stopping after an unchanged screen must retain the static interval")
+    }
+    func testRecoverIncompleteReadableRecording() async throws {
+        let dir = try temporaryFolder()
+        let root = try ProjectStore.createFolder(in:dir,name:"recovery")
+        try await fixture(root.appendingPathComponent("media/original.mov"))
+        let recovered = try await ProjectStore.recover(root)
+        XCTAssertEqual(recovered.project.duration,4,accuracy:1.0/30)
+        XCTAssertTrue(FileManager.default.fileExists(atPath:root.appendingPathComponent("project.json").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath:root.appendingPathComponent("recording.inprogress").path))
+    }
+}
+
+extension MediaTests {
+    func testAudioStaysAlignedAfterCut() async throws {
+        let dir = try temporaryFolder(), source = dir.appendingPathComponent("video.mov")
+        try await fixture(source)
+        let audioURL = dir.appendingPathComponent("pulses.caf")
+        let format = AVAudioFormat(standardFormatWithSampleRate:48000,channels:1)!
+        let file = try AVAudioFile(forWriting:audioURL,settings:format.settings)
+        let buffer = AVAudioPCMBuffer(pcmFormat:format,frameCapacity:192000)!
+        buffer.frameLength = 192000
+        for i in 0..<192000 {
+            let t = Double(i)/48000
+            let active = (0.5..<0.6).contains(t) || (2.5..<2.6).contains(t)
+            buffer.floatChannelData![0][i] = active ? Float(sin(t*440*2*Double.pi)*0.8) : 0
+        }
+        try file.write(from:buffer)
+        let videoAsset = AVURLAsset(url:source), audioAsset = AVURLAsset(url:audioURL)
+        let videoTracks = try await videoAsset.loadTracks(withMediaType:.video)
+        let audioTracks = try await audioAsset.loadTracks(withMediaType:.audio)
+        let composition = AVMutableComposition()
+        let video = composition.addMutableTrack(withMediaType:.video,preferredTrackID:kCMPersistentTrackID_Invalid)!
+        let audio = composition.addMutableTrack(withMediaType:.audio,preferredTrackID:kCMPersistentTrackID_Invalid)!
+        let range = CMTimeRange(start:.zero,duration:CMTime(seconds:4,preferredTimescale:600))
+        try video.insertTimeRange(range,of:videoTracks[0],at:.zero)
+        try audio.insertTimeRange(range,of:audioTracks[0],at:.zero)
+        let combined = dir.appendingPathComponent("combined.mov")
+        let exporter = AVAssetExportSession(asset:composition,presetName:AVAssetExportPresetHighestQuality)!
+        try await exporter.export(to:combined,as:.mov)
+        var p = Project(duration:4,sourceRelativePath:"media/original.mov")
+        p.kept = [.init(start:0,end:1),.init(start:2,end:4)]
+        let final = dir.appendingPathComponent("audio.mp4")
+        try await ExportService.export(project:p,samples:[],sourceURL:combined,settings:.init(format:.mp4,longEdge:320),destination:final) { _ in }
+        let asset = AVURLAsset(url:final)
+        let tracks = try await asset.loadTracks(withMediaType:.audio)
+        XCTAssertEqual(tracks.count,1)
+        let reader = try AVAssetReader(asset:asset)
+        let output = AVAssetReaderTrackOutput(track:try XCTUnwrap(tracks.first),outputSettings:[AVFormatIDKey:kAudioFormatLinearPCM,AVLinearPCMIsFloatKey:true,AVLinearPCMBitDepthKey:32,AVLinearPCMIsNonInterleaved:false,AVSampleRateKey:48000,AVNumberOfChannelsKey:1])
+        reader.add(output); XCTAssertTrue(reader.startReading())
+        var peaks: [Double] = []
+        while let sample = output.copyNextSampleBuffer() {
+            guard let block = sample.dataBuffer else { continue }
+            let bytes = CMBlockBufferGetDataLength(block)
+            var values = [Float](repeating:0,count:bytes/4)
+            _ = values.withUnsafeMutableBytes { CMBlockBufferCopyDataBytes(block,atOffset:0,dataLength:bytes,destination:$0.baseAddress!) }
+            for (i,value) in values.enumerated() where abs(value) > 0.3 { peaks.append(sample.presentationTimeStamp.seconds+Double(i)/48000) }
+        }
+        XCTAssertEqual(try XCTUnwrap(peaks.first),0.5,accuracy:0.1)
+        let second = try XCTUnwrap(peaks.first(where:{$0 > 1}))
+        XCTAssertEqual(second,1.5,accuracy:0.1)
     }
 }

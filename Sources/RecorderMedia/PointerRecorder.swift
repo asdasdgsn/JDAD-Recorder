@@ -8,10 +8,10 @@ final class PointerRecorder {
     private var global: Any?
     private var local: Any?
     private var events: [PointerSample] = []
-    private var geometry: (() -> CGRect?)?
+    private var mapPoint: ((CGPoint) -> CGPoint?)?
     var observedClicks: Int { events.filter(\.clicked).count }
-    func start(geometry: @escaping () -> CGRect?) {
-        stopMonitoring(); events = []; self.geometry = geometry
+    func start(mapPoint: @escaping (CGPoint) -> CGPoint?) {
+        stopMonitoring(); events = []; self.mapPoint = mapPoint
         global = NSEvent.addGlobalMonitorForEvents(matching:[.leftMouseDown,.rightMouseDown]) { [weak self] _ in
             MainActor.assumeIsolated { self?.sample(clicked:true) }
         }
@@ -21,7 +21,7 @@ final class PointerRecorder {
         timer = Timer.scheduledTimer(withTimeInterval:1.0/60,repeats:true) { [weak self] _ in MainActor.assumeIsolated { self?.sample(clicked:false) } }
     }
     private func sample(clicked: Bool) {
-        guard let rect = geometry?(), let event = CGEvent(source:nil), let point = PointerMapping.normalize(point:event.location,contentRect:rect) else { return }
+        guard let event = CGEvent(source:nil), let point = mapPoint?(event.location) else { return }
         let time = CMClockGetTime(CMClockGetHostTimeClock()).seconds
         events.append(.init(time:time,x:point.x,y:point.y,clicked:clicked))
     }
@@ -36,6 +36,6 @@ final class PointerRecorder {
         timer?.invalidate(); timer = nil
         if let global { NSEvent.removeMonitor(global) }; global = nil
         if let local { NSEvent.removeMonitor(local) }; local = nil
-        geometry = nil
+        mapPoint = nil
     }
 }

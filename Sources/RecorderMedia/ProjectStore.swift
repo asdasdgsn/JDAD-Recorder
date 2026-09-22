@@ -1,4 +1,5 @@
 import Foundation
+import AVFoundation
 import RecorderCore
 
 public struct OpenedProject {
@@ -25,6 +26,17 @@ public enum ProjectStore {
         let samples = FileManager.default.fileExists(atPath:eventURL.path) ? try decoder.decode([PointerSample].self,from:Data(contentsOf:eventURL)) : []
         guard samples.allSatisfy({ $0.time.isFinite && $0.time >= 0 && $0.time <= p.duration+0.1 && (0...1).contains($0.x) && (0...1).contains($0.y) }) else { throw RecorderError.message("鼠标轨迹数据无效。") }
         return .init(project:p,samples:samples.sorted{$0.time < $1.time},sourceURL:source,root:root)
+    }
+    public static func recover(_ root: URL) async throws -> OpenedProject {
+        let url = root.appendingPathComponent("media/original.mov")
+        let asset = AVURLAsset(url:url)
+        let duration = try await asset.load(.duration).seconds
+        guard duration.isFinite, duration > 0, !(try await asset.loadTracks(withMediaType:.video)).isEmpty else { throw RecorderError.message("此录制尚未形成可恢复的视频。原始文件仍已保留。") }
+        var project = Project(duration:duration,sourceRelativePath:"media/original.mov")
+        project.name = "恢复的录制"
+        try save(project,samples:[],to:root)
+        try? FileManager.default.removeItem(at:root.appendingPathComponent("recording.inprogress"))
+        return try open(root)
     }
     public static func createFolder(in parent: URL, name: String) throws -> URL {
         let root = parent.appendingPathComponent("\(name)-\(UUID().uuidString.prefix(6)).demorec")

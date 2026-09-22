@@ -17,18 +17,22 @@ public struct CapturedRecording {
 }
 
 /// All writer mutation is confined to queue; main-actor consumers use snapshot methods.
-private final class FrameWriter: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sendable {
+final class FrameWriter: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sendable {
     let queue = DispatchQueue(label:"demo.capture.writer",qos:.userInitiated)
     private let writer: AVAssetWriter
     private let video: AVAssetWriterInput
     private let audio: AVAssetWriterInput?
     private var firstPTS: CMTime?
     private var lastPTS: CMTime?
+    private var lastFrame: CMSampleBuffer?
     private var closed = false
     private var failure: Error?
     private var currentRect: CGRect?
+    private var destinationRect: CGRect?
+    private let outputSize: CGSize
     var onFailure: (@Sendable (Error) -> Void)?
     init(url: URL,width: Int,height: Int,microphone: Bool) throws {
+        outputSize = CGSize(width:width,height:height)
         writer = try AVAssetWriter(outputURL:url,fileType:.mov)
         video = AVAssetWriterInput(mediaType:.video,outputSettings:[AVVideoCodecKey:AVVideoCodecType.h264,AVVideoWidthKey:width,AVVideoHeightKey:height,AVVideoCompressionPropertiesKey:[AVVideoAverageBitRateKey:max(3_000_000,width*height*5),AVVideoExpectedSourceFrameRateKey:30,AVVideoMaxKeyFrameIntervalKey:60]])
         video.expectsMediaDataInRealTime = true
@@ -46,22 +50,38 @@ private final class FrameWriter: NSObject, SCStreamOutput, SCStreamDelegate, @un
                   let status = attachments.first?[.status] as? Int, status == SCFrameStatus.complete.rawValue else { return }
             if let value = attachments.first?[.screenRect] as? NSValue { currentRect = value.rectValue }
             else if let dict = attachments.first?[.screenRect] as? [String:Any] { currentRect = CGRect(dictionaryRepresentation:dict as CFDictionary) }
-            if firstPTS == nil {
-                guard writer.startWriting() else { fail(writer.error ?? RecorderError.message("录制写入无法启动。")); return }
-                writer.startSession(atSourceTime:pts); firstPTS = pts
-            }
-            if video.isReadyForMoreMediaData {
-                if !video.append(sampleBuffer) { fail(writer.error ?? RecorderError.message("视频写入失败。")) }
-                else { lastPTS = pts }
-            }
+            if let value = attachments.first?[.contentRect] as? NSValue { destinationRect = value.rectValue }
+            else if let dict = attachments.first?[.contentRect] as? [String:Any] { destinationRect = CGRect(dictionaryRepresentation:dict as CFDictionary) }
+            appendVideo(sampleBuffer)
         } else if type == .microphone, let firstPTS, pts >= firstPTS, let audio, audio.isReadyForMoreMediaData {
             if !audio.append(sampleBuffer) { fail(writer.error ?? RecorderError.message("麦克风写入失败。")) }
         }
     }
+    func appendVideo(_ sampleBuffer: CMSampleBuffer) {
+        guard !closed else { return }
+        let pts = sampleBuffer.presentationTimeStamp
+        if firstPTS == nil {
+            guard writer.startWriting() else { fail(writer.error ?? RecorderError.message("录制写入无法启动。")); return }
+            writer.startSession(atSourceTime:pts); firstPTS = pts
+        }
+        if video.isReadyForMoreMediaData {
+            if !video.append(sampleBuffer) { fail(writer.error ?? RecorderError.message("视频写入失败。")) }
+            else { lastPTS = pts; lastFrame = sampleBuffer }
+        }
+    }
     private func fail(_ error: Error) { guard failure == nil else { return }; failure = error; onFailure?(error) }
     func stream(_ stream: SCStream,didStopWithError error: Error) { onFailure?(error) }
-    func geometry() -> CGRect? { queue.sync { currentRect } }
-    func finish() async throws -> (Double,Double) {
+    func mapPoint(_ point: CGPoint, fallback: CGRect, windowFrame: CGRect?) -> CGPoint? {
+        queue.sync {
+            guard firstPTS != nil else { return nil }
+            let rect = currentRect ?? fallback
+            // Reject transient geometry while a moved/resized window is awaiting its next frame.
+            if let actual = windowFrame, abs(actual.minX-rect.minX) > 2 || abs(actual.minY-rect.minY) > 2 || abs(actual.width-rect.width) > 2 || abs(actual.height-rect.height) > 2 { return nil }
+            guard let destinationRect else { return nil }
+            return PointerMapping.normalize(point:point,contentRect:rect,destinationRect:destinationRect,canvasSize:outputSize)
+        }
+    }
+    func finish(at stopTime: CMTime) async throws -> (Double,Double) {
         try await withCheckedThrowingContinuation { continuation in
             queue.async {
                 guard !self.closed else { continuation.resume(throwing:RecorderError.message("录制已结束。")); return }
@@ -69,10 +89,18 @@ private final class FrameWriter: NSObject, SCStreamOutput, SCStreamDelegate, @un
                 guard let first = self.firstPTS, let last = self.lastPTS else {
                     self.writer.cancelWriting(); continuation.resume(throwing:RecorderError.message("未收到视频画面，请检查录屏权限后重试。")); return
                 }
-                self.writer.endSession(atSourceTime:last+CMTime(value:1,timescale:30))
+                var end = last
+                if stopTime > last, let frame = self.lastFrame, self.video.isReadyForMoreMediaData {
+                    var timing = CMSampleTimingInfo(duration:CMTime(value:1,timescale:30),presentationTimeStamp:stopTime,decodeTimeStamp:.invalid)
+                    var tail: CMSampleBuffer?
+                    if CMSampleBufferCreateCopyWithNewTiming(allocator:kCFAllocatorDefault,sampleBuffer:frame,sampleTimingEntryCount:1,sampleTimingArray:&timing,sampleBufferOut:&tail) == noErr, let tail, self.video.append(tail) { end = stopTime }
+                }
+                let finalDuration = end.seconds-first.seconds+1.0/30
+                self.lastFrame = nil
+                self.writer.endSession(atSourceTime:end+CMTime(value:1,timescale:30))
                 self.video.markAsFinished(); self.audio?.markAsFinished()
                 self.writer.finishWriting {
-                    if self.writer.status == .completed { continuation.resume(returning:(first.seconds,last.seconds-first.seconds+1.0/30)) }
+                    if self.writer.status == .completed { continuation.resume(returning:(first.seconds,finalDuration)) }
                     else { continuation.resume(throwing:self.writer.error ?? self.failure ?? RecorderError.message("录制文件未能完成写入。")) }
                 }
             }
@@ -125,12 +153,13 @@ public final class CaptureService {
         if microphone { try stream.addStreamOutput(writer,type:.microphone,sampleHandlerQueue:writer.queue) }
         self.stream = stream; self.sink = writer; self.url = destination
         let sourceRect = source.window?.frame ?? source.display?.frame ?? rect
-        pointer.start { [weak writer] in
+        pointer.start { [weak writer] point in
+            var actual: CGRect?
             if let window = source.window {
                 guard let list = CGWindowListCopyWindowInfo([.optionIncludingWindow],window.windowID) as? [[String:Any]],let info = list.first,let bounds = info[kCGWindowBounds as String] as? [String:Any] else { return nil }
-                return CGRect(dictionaryRepresentation:bounds as CFDictionary)
+                actual = CGRect(dictionaryRepresentation:bounds as CFDictionary)
             }
-            return writer?.geometry() ?? sourceRect
+            return writer?.mapPoint(point,fallback:sourceRect,windowFrame:actual)
         }
         do { try await stream.startCapture() }
         catch { pointer.stopMonitoring(); writer.cancel(); self.stream = nil; self.sink = nil; self.url = nil; throw error }
@@ -139,8 +168,9 @@ public final class CaptureService {
         guard let stream, let sink, let url else { throw RecorderError.message("当前没有录制。") }
         self.stream = nil
         defer { pointer.stopMonitoring(); self.sink = nil; self.url = nil }
+        let stoppedAt = CMClockGetTime(CMClockGetHostTimeClock())
         try? await stream.stopCapture()
-        let (anchor,duration) = try await sink.finish()
+        let (anchor,duration) = try await sink.finish(at:stoppedAt)
         return .init(url:url,duration:duration,samples:pointer.stop(anchor:anchor,duration:duration))
     }
 }

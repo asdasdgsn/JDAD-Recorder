@@ -49,7 +49,7 @@ public enum MediaRenderer {
         let zooms = project.zooms.filter { $0.manual || project.automaticZoomEnabled }
         let cameraTrack = CameraTrack(segments:zooms,samples:samples)
         let context = CIContext(options:[.cacheIntermediates:false])
-        let vc = AVMutableVideoComposition(asset:composition) { request in
+        let vc = try await AVMutableVideoComposition.videoComposition(with:composition, applyingCIFiltersWithHandler: { request in
             let outputTime = min(max(0,request.compositionTime.seconds),max(0,timeline.duration-0.000001))
             let sourceTime = timeline.sourceTime(at:outputTime) ?? 0
             let camera = cameraTrack.evaluate(time:sourceTime)
@@ -60,7 +60,7 @@ public enum MediaRenderer {
                               width:extent.width/camera.scale,height:extent.height/camera.scale)
             let output = image.cropped(to:crop).transformed(by:CGAffineTransform(translationX:-crop.minX,y:-crop.minY)).transformed(by:CGAffineTransform(scaleX:size.width/crop.width,y:size.height/crop.height)).cropped(to:CGRect(origin:.zero,size:size))
             request.finish(with:output,context:context)
-        }
+        })
         vc.renderSize = size
         vc.frameDuration = CMTime(value:1,timescale:Int32(fps))
         let mix = AVMutableAudioMix(); mix.inputParameters = parameters
