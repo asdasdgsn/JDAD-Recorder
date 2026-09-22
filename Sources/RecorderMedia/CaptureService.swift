@@ -131,6 +131,28 @@ public final class CaptureService {
         let windows = content.windows.filter { $0.windowLayer == 0 && $0.frame.width > 80 && $0.frame.height > 80 && $0.owningApplication?.processID != ProcessInfo.processInfo.processIdentifier }.sorted { ($0.owningApplication?.applicationName ?? "") < ($1.owningApplication?.applicationName ?? "") }.map { w in CaptureSource(id:"window-\(w.windowID)",title:"\(w.owningApplication?.applicationName ?? "窗口") — \(w.title ?? "未命名")",display:nil,window:w) }
         return displays+windows
     }
+    /// A small, on-demand still preview; failures must not block selecting a source.
+    public func thumbnail(for source: CaptureSource) async throws -> NSImage {
+        let filter: SCContentFilter
+        let size: CGSize
+        if let window = source.window {
+            filter = SCContentFilter(desktopIndependentWindow: window)
+            size = window.frame.size
+        } else if let display = source.display {
+            filter = SCContentFilter(display: display, excludingApplications: ownApplications, exceptingWindows: [])
+            size = display.frame.size
+        } else { throw RecorderError.message("录制来源已不可用。") }
+        let config = SCStreamConfiguration()
+        let factor = min(360 / max(1, size.width), 210 / max(1, size.height))
+        config.width = max(2, Int(size.width * factor))
+        config.height = max(2, Int(size.height * factor))
+        config.showsCursor = false
+        config.scalesToFit = true
+        config.preservesAspectRatio = true
+        config.captureResolution = .nominal
+        let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+        return NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
+    }
     public static var microphones: [AVCaptureDevice] { AVCaptureDevice.DiscoverySession(deviceTypes:[.microphone,.external],mediaType:.audio,position:.unspecified).devices }
     public func start(source: CaptureSource,microphone: Bool,deviceID: String?,destination: URL,region: CGRect? = nil) async throws {
         guard stream == nil else { throw RecorderError.message("已有正在进行的录制。") }

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-APP="${1:-$PWD/dist/v0.4.2/JDAD Recorder.app}"
+APP="${1:-$PWD/dist/v0.4.3-release/JDAD Recorder.app}"
 VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")
 ./scripts/check-signing.sh "$APP"
 STAGE=$(mktemp -d /tmp/jdad-installer.XXXXXX)

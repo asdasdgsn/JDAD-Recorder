@@ -10,6 +10,8 @@ enum WorkspacePage: String { case library, capture, editor }
 final class AppModel: ObservableObject {
     @Published var page: WorkspacePage = .library
     @Published var sources: [CaptureSource] = []
+    @Published var sourceThumbnails: [String: NSImage] = [:]
+    @Published var sourcePreviewGeneration = 0
     @Published var sourceID = "" {
         didSet { if oldValue != sourceID { captureRegion = nil; regionDisplayBounds = nil } }
     }
@@ -92,14 +94,24 @@ final class AppModel: ObservableObject {
         busy = true; defer { busy = false }
         do {
             sources = try await capture.sources()
+            sourceThumbnails = [:]
+            sourcePreviewGeneration += 1
             if !availableCaptureSources.contains(where:{$0.id == sourceID}) { sourceID = availableCaptureSources.first?.id ?? "" }
             if let regionDisplayBounds, sources.first(where:{$0.id == sourceID})?.display?.frame != regionDisplayBounds {
                 captureRegion = nil; self.regionDisplayBounds = nil
             }
         } catch {
-            sources = []; sourceID = ""
+            sources = []; sourceID = ""; sourceThumbnails = [:]
             self.error = CapturePermissionGuidance.message(for:error,applicationPath:Bundle.main.bundleURL.path)
         }
+    }
+    func loadSourceThumbnail(_ source: CaptureSource) async {
+        guard !recording, countdown == nil, !Task.isCancelled else { return }
+        let generation = sourcePreviewGeneration
+        guard let image = try? await capture.thumbnail(for: source),
+              !Task.isCancelled, generation == sourcePreviewGeneration,
+              sources.contains(where: { $0.id == source.id }) else { return }
+        sourceThumbnails[source.id] = image
     }
     var availableCaptureSources: [CaptureSource] { regionMode ? sources.filter{$0.display != nil} : sources }
     var canStartRecording: Bool { !busy && !recording && !sourceID.isEmpty && (!regionMode || captureRegion != nil) }
