@@ -1,0 +1,83 @@
+{
+  "name": "jdad-recorder-windows",
+  "version": "0.1.0",
+  "private": true,
+  "description": "JDAD Recorder Windows team preview",
+  "author": "JDAD",
+  "license": "UNLICENSED",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "start": "npm run build && electron .",
+    "media:fetch": "node scripts/fetch-media.mjs",
+    "package:win": "npm run build && node scripts/fetch-native.mjs && node scripts/verify-package-inputs.mjs && electron-builder --win nsis zip --x64 --publish never"
+  },
+  "dependencies": {
+    "koffi": "3.3.1",
+    "uiohook-napi": "1.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "electron": "44.4.2",
+    "electron-builder": "26.15.3",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  },
+  "build": {
+    "appId": "com.jdad.recorder",
+    "productName": "JDAD Recorder",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "assets/**/*",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "vendor/win32-x64",
+        "to": "media",
+        "filter": [
+          "ffmpeg.exe",
+          "ffprobe.exe",
+          "LICENSE",
+          "COPYING*",
+          "README",
+          "PROVENANCE.md",
+          "*.json"
+        ]
+      }
+    ],
+    "asarUnpack": [
+      "node_modules/koffi/**/*",
+      "node_modules/uiohook-napi/**/*",
+      "node_modules/@koromix/**/*"
+    ],
+    "npmRebuild": false,
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ],
+      "icon": "assets/icon.ico",
+      "artifactName": "JDAD-Recorder-${version}-Windows-${arch}.${ext}",
+      "signExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "JDAD Recorder"
+    }
+  },
+  "optionalDependencies": {
+    "@koromix/koffi-win32-x64": "3.3.1"
+  }
+}

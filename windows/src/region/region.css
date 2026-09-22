@@ -1,0 +1,68 @@
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  font: 14px system-ui;
+  color: white;
+  cursor: crosshair;
+}
+#selection {
+  display: none;
+  position: absolute;
+  border: 2px solid #b4f987;
+  box-shadow: 0 0 0 99999px #05080bb0;
+  cursor: move;
+}
+#selection span {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: #151a20;
+  padding: 5px 8px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+i {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #b4f987;
+  border: 1px solid #17221a;
+}
+i[data-corner="nw"] {
+  left: -7px;
+  top: -7px;
+  cursor: nwse-resize;
+}
+i[data-corner="ne"] {
+  right: -7px;
+  top: -7px;
+  cursor: nesw-resize;
+}
+i[data-corner="sw"] {
+  left: -7px;
+  bottom: -7px;
+  cursor: nesw-resize;
+}
+i[data-corner="se"] {
+  right: -7px;
+  bottom: -7px;
+  cursor: nwse-resize;
+}
+#help {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #151a20;
+  padding: 14px 24px;
+  border-radius: 9px;
+  pointer-events: none;
+  white-space: nowrap;
+}

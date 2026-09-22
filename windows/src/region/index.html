@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'"
+    />
+    <link rel="stylesheet" href="./region.css" />
+    <title>选择录制区域</title>
+  </head>
+  <body>
+    <div id="selection">
+      <span id="dimensions"></span><i data-corner="nw"></i
+      ><i data-corner="ne"></i><i data-corner="sw"></i><i data-corner="se"></i>
+    </div>
+    <div id="help">拖动框选区域 · 拖动边角调整 · Enter 确认 · Esc 取消</div>
+    <script type="module" src="./region.js"></script>
+  </body>
+</html>
