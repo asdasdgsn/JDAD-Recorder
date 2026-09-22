@@ -4,6 +4,36 @@ public struct EditTimeline: Equatable, Sendable {
     public var kept: [TimeSpan]
     public init(kept: [TimeSpan]) { self.kept = kept }
     public var duration: Double { kept.reduce(0) { $0 + $1.duration } }
+    public var boundaries: [Double] {
+        var result = [0.0]
+        for span in kept { result.append(result.last! + span.duration) }
+        return result
+    }
+    @discardableResult public mutating func split(at outputTime: Double) -> Bool {
+        guard outputTime.isFinite else { return false }
+        let time = (outputTime * 30).rounded() / 30
+        var cursor = 0.0
+        for (index,span) in kept.enumerated() {
+            let local = time-cursor
+            if local >= 1.0/30-0.000001 && span.duration-local >= 1.0/30-0.000001 {
+                let cut = span.start+local
+                kept.replaceSubrange(index...index,with:[.init(start:span.start,end:cut),.init(start:cut,end:span.end)])
+                return true
+            }
+            cursor += span.duration
+        }
+        return false
+    }
+    /// Destination is a boundary in the original array, before removing the moving clip.
+    @discardableResult public mutating func moveClip(from index: Int,toBoundary boundary: Int) -> Bool {
+        guard kept.indices.contains(index), (0...kept.count).contains(boundary), boundary != index, boundary != index+1 else { return false }
+        let clip = kept.remove(at:index)
+        kept.insert(clip,at:boundary > index ? boundary-1 : boundary)
+        return true
+    }
+    public func insertionBoundary(at time: Double) -> Int {
+        boundaries.enumerated().min(by:{ abs($0.element-time) < abs($1.element-time) })?.offset ?? 0
+    }
     public func sourceTime(at outputTime: Double) -> Double? {
         guard outputTime.isFinite, outputTime >= 0, outputTime < duration else { return nil }
         var cursor = 0.0

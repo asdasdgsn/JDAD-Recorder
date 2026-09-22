@@ -32,15 +32,16 @@ public enum CameraEvaluator {
     private static func smooth(_ t: Double) -> Double { let u = min(1,max(0,t)); return u*u*(3-2*u) }
     public static func evaluate(time: Double, segments: [ZoomSegment], samples: [PointerSample]) -> CameraState {
         guard let z = segments.first(where: { time >= $0.start && time < $0.end }) else { return CameraState() }
-        let length = z.end-z.start
+        let envelope = z.animationRange ?? TimeSpan(start:z.start,end:z.end)
+        let length = envelope.duration
         let enter = min(0.35,length/2), leave = min(0.45,length/2)
-        let amount = min(smooth((time-z.start)/enter),smooth((z.end-time)/leave))
+        let amount = min(smooth((time-envelope.start)/enter),smooth((envelope.end-time)/leave))
         let scale = 1 + (z.scale-1)*amount
         var x = z.centerX, y = z.centerY
         if !z.manual {
             // Event-domain deterministic follow: independent of render order and frame rate.
-            var previous = z.start
-            for s in samples where s.time >= z.start && s.time <= time && s.time < z.end {
+            var previous = envelope.start
+            for s in samples where s.time >= envelope.start && s.time <= time && s.time < z.end {
                 let dt = max(0,s.time-previous), limit = 0.3/z.scale
                 let targetX = s.x > x+limit ? s.x-limit : (s.x < x-limit ? s.x+limit : x)
                 let targetY = s.y > y+limit ? s.y-limit : (s.y < y-limit ? s.y+limit : y)
@@ -61,12 +62,14 @@ public struct CameraTrack: Sendable {
     public init(segments: [ZoomSegment], samples: [PointerSample]) {
         self.segments = segments.sorted { $0.start < $1.start }
         let ordered = samples.sorted { $0.time < $1.time }
-        var index = 0
         self.tracks = self.segments.map { z in
-            var keys = [Key(time:z.start,x:z.centerX,y:z.centerY)]
-            var x = z.centerX, y = z.centerY, last = z.start
-            while index < ordered.count && ordered[index].time < z.start { index += 1 }
-            while index < ordered.count && ordered[index].time < z.end {
+            let trackingStart = z.animationRange?.start ?? z.start
+            var keys = [Key(time:trackingStart,x:z.centerX,y:z.centerY)]
+            var x = z.centerX, y = z.centerY, last = trackingStart
+            var low = 0, high = ordered.count
+            while low < high { let mid = (low+high)/2; if ordered[mid].time < trackingStart { low = mid+1 } else { high = mid } }
+            var index = low
+            while index < ordered.count && ordered[index].time < (z.animationRange?.end ?? z.end) {
                 let s = ordered[index]; index += 1
                 let limit = 0.3/z.scale, a = 1-exp(-max(0,s.time-last)/0.16)
                 let tx = s.x > x+limit ? s.x-limit : (s.x < x-limit ? s.x+limit : x)

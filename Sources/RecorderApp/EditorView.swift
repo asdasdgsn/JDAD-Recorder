@@ -54,29 +54,31 @@ struct EditorView: View {
                             }.buttonStyle(.plain)
                         }
                     }.padding(18)
-                }.frame(width:240).background(.black.opacity(0.1)).disabled(!model.canEdit)
+                }.frame(width:240).background(.black.opacity(0.1)).disabled(!model.canEdit || model.timelineInteracting)
             }
             Divider().opacity(0.4)
             VStack(spacing:12) {
                 HStack(spacing:12) {
                     Text("时间轴").font(.system(size:12,weight:.semibold))
-                    Text("拖动白色播放头定位；拖动两端绿色手柄选区").font(.system(size:11)).foregroundStyle(.secondary)
+                    Text("拖动片段排序 · 拖动聚焦两端调时长").font(.system(size:11)).foregroundStyle(.secondary)
                     Spacer()
+                    Toggle(isOn:$model.snapping) { Label("吸附",systemImage:"align.horizontal.left") }.toggleStyle(.button).controlSize(.small).help("吸附播放头和片段边界；按住 Option 暂时关闭")
                     Image(systemName:"minus.magnifyingglass").font(.caption).foregroundStyle(.secondary)
                     Slider(value:$timelineScale,in:1...6).frame(width:85)
                     Image(systemName:"plus.magnifyingglass").font(.caption).foregroundStyle(.secondary)
                 }
                 GeometryReader { outer in
-                    ScrollView(.horizontal) { TimelineTrack(width:max(1,outer.size.width)*timelineScale).frame(width:max(1,outer.size.width)*timelineScale,height:114) }.frame(height:126)
-                }.frame(height:126)
+                    ScrollView(.horizontal) { TimelineTrack(width:max(1,outer.size.width)*timelineScale).frame(width:max(1,outer.size.width)*timelineScale,height:142) }.frame(height:154)
+                }.frame(height:154)
                 HStack(spacing:12) {
+                    Button { model.splitAtPlayhead() } label: { Label("分割",systemImage:"scissors") }.disabled(!model.canSplit).help("在播放头处分割 ⌘B")
                     Label("选区",systemImage:"selection.pin.in.out").font(.caption).foregroundStyle(.secondary)
                     timeField("起点",value:$model.selectionStart,range:0...max(0,model.selectionEnd))
                     Text("—").foregroundStyle(.tertiary)
                     timeField("终点",value:$model.selectionEnd,range:min(model.selectionStart,model.duration)...max(model.selectionStart,model.duration))
                     Spacer()
-                    Button("仅保留选区") { model.cut(retain:true) }.disabled(!model.canEdit || model.selectionEnd <= model.selectionStart)
-                    Button(role:.destructive) { model.cut(retain:false) } label: { Label("删除选区",systemImage:"scissors") }.disabled(!model.canEdit || model.selectionEnd <= model.selectionStart)
+                    Button("仅保留选区") { model.cut(retain:true) }.disabled(!model.canEdit || model.timelineInteracting || model.selectionEnd <= model.selectionStart)
+                    Button(role:.destructive) { model.cut(retain:false) } label: { Label("删除选区",systemImage:"scissors") }.disabled(!model.canEdit || model.timelineInteracting || model.selectionEnd <= model.selectionStart)
                 }
             }.padding(18).background(.black.opacity(0.15))
         }
@@ -84,44 +86,6 @@ struct EditorView: View {
     }
     func timeField(_ title: String,value: Binding<Double>,range: ClosedRange<Double>) -> some View {
         HStack(spacing:4) { Text(title).font(.caption).foregroundStyle(.tertiary); TextField("秒",value:Binding(get:{value.wrappedValue},set:{value.wrappedValue = $0.isFinite ? min(range.upperBound,max(range.lowerBound,$0)) : range.lowerBound}),format:.number.precision(.fractionLength(2))).textFieldStyle(.roundedBorder).frame(width:68); Text("秒").font(.caption).foregroundStyle(.tertiary) }.disabled(!model.canEdit)
-    }
-}
-struct TimelineTrack: View {
-    @EnvironmentObject var model: AppModel
-    let width: CGFloat
-    func x(_ time: Double) -> CGFloat { width*min(1,max(0,time/max(0.001,model.duration))) }
-    var body: some View {
-        ZStack(alignment:.topLeading) {
-            ForEach(0..<11) { i in Text(timeLabel(model.duration*Double(i)/10)).font(.system(size:9,design:.monospaced)).foregroundStyle(.tertiary).offset(x:min(width-46,width*Double(i)/10),y:0) }
-            HStack(spacing:1) {
-                if model.thumbnails.isEmpty { Rectangle().fill(.white.opacity(0.04)) }
-                else { ForEach(Array(model.thumbnails.enumerated()),id:\.offset) { _,image in Image(nsImage:image).resizable().scaledToFill().frame(width:width/CGFloat(model.thumbnails.count),height:46).clipped() } }
-            }.frame(width:width,height:46).clipped().cornerRadius(5).offset(y:23)
-            Rectangle().fill(accent.opacity(0.13)).frame(width:max(0,x(model.selectionEnd)-x(model.selectionStart)),height:46).overlay(Rectangle().stroke(accent,lineWidth:1)).offset(x:x(model.selectionStart),y:23)
-            // Gestures here seek; handles and zoom buttons sit above this layer.
-            Rectangle().fill(.clear).contentShape(Rectangle()).frame(width:width,height:69).gesture(DragGesture(minimumDistance:0).onChanged { model.seek(Double($0.location.x/width)*model.duration) })
-            if let p = model.project {
-                ForEach(p.zooms) { z in
-                    ForEach(Array(p.kept.enumerated()),id:\.offset) { index,span in
-                        let start = max(z.start,span.start), end = min(z.end,span.end)
-                        if end > start {
-                            let preceding = p.kept.prefix(index).reduce(0){$0+$1.duration}
-                            let outputStart = preceding+start-span.start
-                            Button { model.selectedZoom = z.id; model.seek(outputStart) } label: {
-                                Text(String(format:"%.1f×",z.scale)).font(.system(size:9,weight:.medium,design:.monospaced)).lineLimit(1).frame(width:max(6,x(end-start)),height:23).background((z.manual ? Color.orange : accent).opacity(model.selectedZoom == z.id ? 0.65 : 0.25),in:RoundedRectangle(cornerRadius:4))
-                            }.buttonStyle(.plain).offset(x:x(outputStart),y:78)
-                        }
-                    }
-                }
-            }
-            handle(start:true); handle(start:false)
-            Rectangle().fill(.white).frame(width:1.5,height:88).offset(x:min(width-2,x(model.position)),y:18).allowsHitTesting(false)
-            Image(systemName:"triangle.fill").font(.system(size:9)).rotationEffect(.degrees(180)).offset(x:min(width-10,max(0,x(model.position)-4)),y:10).allowsHitTesting(false)
-        }.frame(width:width,height:110).coordinateSpace(name:"track")
-    }
-    func handle(start: Bool) -> some View {
-        RoundedRectangle(cornerRadius:3).fill(accent).frame(width:7,height:50).overlay(Capsule().fill(.black.opacity(0.4)).frame(width:1,height:15)).offset(x:min(width-7,max(0,x(start ? model.selectionStart : model.selectionEnd)-(start ? 0 : 7))),y:21)
-            .gesture(DragGesture(coordinateSpace:.named("track")).onChanged { value in let time = max(0,min(model.duration,Double(value.location.x/width)*model.duration)); if start { model.selectionStart = min(time,model.selectionEnd) } else { model.selectionEnd = max(time,model.selectionStart) } }).disabled(!model.canEdit)
     }
 }
 struct ZoomInspector: View {

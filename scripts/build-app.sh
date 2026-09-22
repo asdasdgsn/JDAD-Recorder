@@ -2,10 +2,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 swift build -c release
-APP="$(pwd)/dist/Demo Recorder.app"
+OUTPUT_DIR="${DEMO_OUTPUT_DIR:-$(pwd)/dist}"
+APP="$OUTPUT_DIR/Demo Recorder.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/DemoRecorder "$APP/Contents/MacOS/DemoRecorder"
-ICONSET="$(pwd)/dist/AppIcon.iconset"
+ICONSET="$OUTPUT_DIR/AppIcon.iconset"
 mkdir -p "$ICONSET"
 swift scripts/make-icon.swift "$ICONSET/icon_512x512@2x.png"
 for size in 16 32 128 256 512; do

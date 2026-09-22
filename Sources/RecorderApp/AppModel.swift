@@ -27,6 +27,9 @@ final class AppModel: ObservableObject {
     @Published var selectionStart = 0.0
     @Published var selectionEnd = 0.0
     @Published var selectedZoom: UUID?
+    @Published var selectedClip: Int?
+    @Published var snapping = true
+    @Published var timelineInteracting = false
     @Published var history = EditHistory()
     @Published var exportProgress = 0.0
     @Published var exporting = false {
@@ -70,7 +73,7 @@ final class AppModel: ObservableObject {
     }
     var duration: Double { project?.timeline.duration ?? 0 }
     var canEdit: Bool { project != nil && !busy && !exporting && !recording && !quitting }
-    var canExport: Bool { canEdit && renderReady && duration > 0 }
+    var canExport: Bool { canEdit && !timelineInteracting && renderReady && duration > 0 }
     var microphones: [AVCaptureDevice] { CaptureService.microphones }
     func refreshSources() async {
         guard !busy && !recording else { return }
@@ -135,7 +138,7 @@ final class AppModel: ObservableObject {
     func load(_ url: URL) throws {
         let opened = try ProjectStore.open(url)
         player.pause(); project = opened.project; samples = opened.samples; root = opened.root; sourceURL = opened.sourceURL
-        history = EditHistory(); selectedZoom = nil; position = 0; selectionStart = 0; selectionEnd = duration
+        history = EditHistory(); selectedZoom = nil; selectedClip = nil; position = 0; selectionStart = 0; selectionEnd = duration
         page = .editor; remember(url); rebuild()
     }
     private func importVideo(_ url: URL) async {
@@ -155,22 +158,59 @@ final class AppModel: ObservableObject {
     }
     private func remember(_ url: URL) { recent.removeAll{$0 == url}; recent.insert(url,at:0); recent = Array(recent.prefix(20)); UserDefaults.standard.set(recent.map(\.path),forKey:"recentProjects") }
     func edit(_ mutation: (inout Project) -> Void) {
-        guard canEdit, let current = project else { return }
+        guard canEdit, !timelineInteracting, let current = project else { return }
         var candidate = current; mutation(&candidate)
+        guard candidate != current else { return }
         do { try candidate.validate(); history.record(current); project = candidate; saveAndRebuild() } catch { self.error = error.localizedDescription }
     }
     func cut(retain: Bool) {
         let range = TimeSpan(start:selectionStart,end:selectionEnd)
         guard range.duration > 0 else { return }
         edit { p in var t = p.timeline; if retain { t.retain(outputRange:range) } else { t.delete(outputRange:range) }; p.kept = t.kept }
-        selectionStart = 0; selectionEnd = duration; position = min(position,duration)
+        selectedClip = nil; selectionStart = 0; selectionEnd = duration; position = min(position,duration)
     }
-    func undo() { guard canEdit, let p = project, let previous = history.undo(current:p) else { return }; project = previous; resetSelection(); saveAndRebuild() }
-    func redo() { guard canEdit, let p = project, let next = history.redo(current:p) else { return }; project = next; resetSelection(); saveAndRebuild() }
-    private func resetSelection() { selectionStart = 0; selectionEnd = duration; position = min(position,duration) }
+    func undo() { guard canEdit, !timelineInteracting, let p = project, let previous = history.undo(current:p) else { return }; project = previous; resetSelection(); saveAndRebuild() }
+    func redo() { guard canEdit, !timelineInteracting, let p = project, let next = history.redo(current:p) else { return }; project = next; resetSelection(); saveAndRebuild() }
+    private func resetSelection() { selectedClip = nil; selectionStart = 0; selectionEnd = duration; position = min(position,duration) }
     private func saveAndRebuild() {
         guard let project, let root else { return }
         do { try ProjectStore.save(project,samples:samples,to:root); rebuild() } catch { self.error = "自动保存失败：\(error.localizedDescription)" }
+    }
+    var canSplit: Bool {
+        guard canEdit, !timelineInteracting, var timeline = project?.timeline else { return false }
+        return timeline.split(at:position)
+    }
+    func splitAtPlayhead() {
+        guard canSplit, var timeline = project?.timeline else { return }
+        let at = position
+        guard timeline.split(at:at) else { return }
+        edit { $0.kept = timeline.kept; $0.version = 2 }
+        let splitTime = (at * 30).rounded() / 30
+        if let index = timeline.boundaries.dropLast().lastIndex(where:{$0 <= splitTime+0.000001}) {
+            selectClip(index,at:splitTime)
+        }
+    }
+    func selectClip(_ index: Int, at time: Double) {
+        guard !timelineInteracting, let p = project, p.kept.indices.contains(index) else { return }
+        selectedClip = index
+        selectionStart = p.timeline.boundaries[index]; selectionEnd = p.timeline.boundaries[index+1]
+        seek(time)
+    }
+    func beginTimelineInteraction() { player.pause(); timelineInteracting = true }
+    func commitClipMove(from index: Int,to boundary: Int,snapshot: Project) {
+        timelineInteracting = false
+        guard project == snapshot else { return }
+        var timeline = snapshot.timeline
+        guard timeline.moveClip(from:index,toBoundary:boundary) else { return }
+        let selected = boundary > index ? boundary-1 : boundary
+        position = timeline.boundaries[selected]
+        edit { $0.kept = timeline.kept; $0.version = 2 }
+        selectClip(selected,at:timeline.boundaries[selected])
+    }
+    func commitZoomResize(_ candidate: Project,snapshot: Project) {
+        timelineInteracting = false
+        guard project == snapshot else { return }
+        edit { $0 = candidate }
     }
     func regenerate() { edit { $0.zooms = AutoZoomPlanner.plan(samples:samples,duration:$0.duration) } }
     func addZoom() {
@@ -180,7 +220,13 @@ final class AppModel: ObservableObject {
         let z = ZoomSegment(start:start,end:end,centerX:0.5,centerY:0.5,manual:true)
         edit { $0.zooms.append(z); $0.zooms.sort{$0.start < $1.start} }; selectedZoom = z.id
     }
-    func updateZoom(_ z: ZoomSegment) { edit { p in if let i = p.zooms.firstIndex(where:{$0.id == z.id}) { p.zooms[i] = z } } }
+    func updateZoom(_ z: ZoomSegment) { edit { p in
+        if let i = p.zooms.firstIndex(where:{$0.id == z.id}) {
+            var updated = z
+            if updated.start != p.zooms[i].start || updated.end != p.zooms[i].end { updated.animationRange = nil }
+            p.zooms[i] = updated
+        }
+    } }
     func deleteZoom(_ id: UUID) { edit { $0.zooms.removeAll{$0.id == id} }; selectedZoom = nil }
     func seek(_ value: Double) { position = min(duration,max(0,value)); player.seek(to:CMTime(seconds:position,preferredTimescale:60000),toleranceBefore:.zero,toleranceAfter:.zero) }
     func togglePlay() { guard renderReady else { return }; if player.rate > 0 { player.pause() } else { if position >= duration-0.05 { seek(0) }; player.play() } }

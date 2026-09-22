@@ -14,3 +14,9 @@ Ruling: Cannot complete real screen/microphone acceptance while TCC is denied. A
 Ruling: Preserve standalone new repository feature/mac-recorder as local deliverable. There is no original base branch or remote to merge/push; a Git integration choice is inapplicable to this new local product.
 Ruling: Retain fixed .app and ZIP for user testing; Developer ID and second-Mac validation require external credentials/device and are not claimed complete.
 Task 5 implementation and local artifact verification finished; real-capture acceptance pending user-provided OS permission.
+
+Approved bounded extension (v0.2): resize focus bars, split at playhead, reorder clips by drag, gapless insertion and snapping. User approved in chat; no further design gate required.
+Implementation: ordered source spans, frame-aligned splits, snapshot-based drag commits, local focus fragments with preserved animation envelopes, Cmd-B and synchronized right-clip selection, v2 persistence compatible with v1 reads.
+Regression evidence: automatic follow interpolation immediately before a cut failed before extending fragment track sampling through the original envelope; correction passes. Full suite now 31 tests including actual reordered MP4/GIF pixel checks and audio pulse alignment.
+Fresh independent read-only review: no blockers; P3 split selection mismatch corrected. Native gesture end-to-end remains unverified because user input interrupted the attempted automation. Do not claim this as passed.
+Delivery: build separately into dist/v0.2 to preserve the running app and the user's active project. No user project or source recording reset.

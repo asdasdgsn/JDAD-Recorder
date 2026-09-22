@@ -16,6 +16,9 @@ struct DemoRecorderApp: App {
                 Button("新建录制") { model.newRecording() }.keyboardShortcut("n").disabled(model.recording || model.busy || model.exporting)
                 Button("打开工程或视频…") { model.openPanel() }.keyboardShortcut("o").disabled(model.recording || model.busy || model.exporting)
             }
+            CommandMenu("剪辑") {
+                Button("在播放头处分割") { model.splitAtPlayhead() }.keyboardShortcut("b").disabled(!model.canSplit)
+            }
             CommandGroup(replacing:.undoRedo) {
                 Button("撤销") { model.undo() }.keyboardShortcut("z").disabled(!model.history.canUndo || !model.canEdit)
                 Button("重做") { model.redo() }.keyboardShortcut("z",modifiers:[.command,.shift]).disabled(!model.history.canRedo || !model.canEdit)

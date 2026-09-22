@@ -121,7 +121,7 @@ extension MediaTests {
 }
 
 extension MediaTests {
-    func testAudioStaysAlignedAfterCut() async throws {
+    func testAudioStaysAlignedAfterReorderAndCut() async throws {
         let dir = try temporaryFolder(), source = dir.appendingPathComponent("video.mov")
         try await fixture(source)
         let audioURL = dir.appendingPathComponent("pulses.caf")
@@ -148,7 +148,7 @@ extension MediaTests {
         let exporter = AVAssetExportSession(asset:composition,presetName:AVAssetExportPresetHighestQuality)!
         try await exporter.export(to:combined,as:.mov)
         var p = Project(duration:4,sourceRelativePath:"media/original.mov")
-        p.kept = [.init(start:0,end:1),.init(start:2,end:4)]
+        p.kept = [.init(start:2,end:4),.init(start:0,end:1)]
         let final = dir.appendingPathComponent("audio.mp4")
         try await ExportService.export(project:p,samples:[],sourceURL:combined,settings:.init(format:.mp4,longEdge:320),destination:final) { _ in }
         let asset = AVURLAsset(url:final)
@@ -167,7 +167,7 @@ extension MediaTests {
         }
         XCTAssertEqual(try XCTUnwrap(peaks.first),0.5,accuracy:0.1)
         let second = try XCTUnwrap(peaks.first(where:{$0 > 1}))
-        XCTAssertEqual(second,1.5,accuracy:0.1)
+        XCTAssertEqual(second,2.5,accuracy:0.1)
     }
 }
 
@@ -206,5 +206,42 @@ extension MediaTests {
         XCTAssertEqual(try Data(contentsOf:destination),sentinel)
         let files = try FileManager.default.contentsOfDirectory(atPath:dir.path)
         XCTAssertFalse(files.contains(where:{$0.hasPrefix(".demo-export-")}))
+    }
+}
+
+extension MediaTests {
+    func testReorderedMP4AndGIFKeepFocusWithSourceClip() async throws {
+        let dir = try temporaryFolder(), source = dir.appendingPathComponent("source.mov")
+        try await fixture(source)
+        var p = Project(duration:4,sourceRelativePath:"media/original.mov")
+        p.version = 2
+        p.kept = [.init(start:2,end:4),.init(start:0,end:1)]
+        p.zooms = [.init(start:2,end:4,centerX:0.75,centerY:0.5,scale:2,manual:true)]
+        let context = CIContext()
+        for format in [ExportFormat.mp4,.gif] {
+            let result = dir.appendingPathComponent("reordered.\(format.rawValue)")
+            try await ExportService.export(project:p,samples:[],sourceURL:source,settings:.init(format:format,longEdge:320,fps:10),destination:result) { _ in }
+            var frames: [CGImage] = []
+            if format == .mp4 {
+                let asset = AVURLAsset(url:result)
+                let duration = try await asset.load(.duration).seconds
+                XCTAssertEqual(duration,3,accuracy:1.0/30)
+                let generator = AVAssetImageGenerator(asset:asset)
+                generator.requestedTimeToleranceBefore = .zero; generator.requestedTimeToleranceAfter = .zero
+                frames.append(try await generator.image(at:CMTime(seconds:0.7,preferredTimescale:600)).image)
+                frames.append(try await generator.image(at:CMTime(seconds:2.5,preferredTimescale:600)).image)
+            } else {
+                let gif = try XCTUnwrap(CGImageSourceCreateWithURL(result as CFURL,nil))
+                XCTAssertEqual(CGImageSourceGetCount(gif),30)
+                frames.append(try XCTUnwrap(CGImageSourceCreateImageAtIndex(gif,7,nil)))
+                frames.append(try XCTUnwrap(CGImageSourceCreateImageAtIndex(gif,25,nil)))
+            }
+            var pixel = [UInt8](repeating:0,count:4)
+            context.render(CIImage(cgImage:frames[0]),toBitmap:&pixel,rowBytes:4,bounds:CGRect(x:160,y:90,width:1,height:1),format:.RGBA8,colorSpace:CGColorSpaceCreateDeviceRGB())
+            XCTAssertGreaterThan(pixel[1],150,"Moved clip must retain its zoom")
+            context.render(CIImage(cgImage:frames[1]),toBitmap:&pixel,rowBytes:4,bounds:CGRect(x:160,y:90,width:1,height:1),format:.RGBA8,colorSpace:CGColorSpaceCreateDeviceRGB())
+            XCTAssertGreaterThan(pixel[0],150,"Original first clip must now appear last")
+            XCTAssertLessThan(pixel[1],80)
+        }
     }
 }
