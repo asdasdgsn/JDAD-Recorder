@@ -10,7 +10,19 @@ enum WorkspacePage: String { case library, capture, editor }
 final class AppModel: ObservableObject {
     @Published var page: WorkspacePage = .library
     @Published var sources: [CaptureSource] = []
-    @Published var sourceID = ""
+    @Published var sourceID = "" {
+        didSet { if oldValue != sourceID { captureRegion = nil; regionDisplayBounds = nil } }
+    }
+    @Published var regionMode = false {
+        didSet {
+            if regionMode && sources.first(where:{$0.id == sourceID})?.display == nil {
+                sourceID = sources.first(where:{$0.display != nil})?.id ?? ""
+            }
+        }
+    }
+    @Published var captureRegion: CGRect?
+    private var regionDisplayBounds: CGRect?
+    private let regionSelector = RegionSelector()
     @Published var microphone = false
     @Published var microphoneID = ""
     @Published var busy = false {
@@ -80,10 +92,31 @@ final class AppModel: ObservableObject {
         busy = true; defer { busy = false }
         do {
             sources = try await capture.sources()
-            if !sources.contains(where:{$0.id == sourceID}) { sourceID = sources.first?.id ?? "" }
+            if !availableCaptureSources.contains(where:{$0.id == sourceID}) { sourceID = availableCaptureSources.first?.id ?? "" }
+            if let regionDisplayBounds, sources.first(where:{$0.id == sourceID})?.display?.frame != regionDisplayBounds {
+                captureRegion = nil; self.regionDisplayBounds = nil
+            }
         } catch {
             sources = []; sourceID = ""
             self.error = CapturePermissionGuidance.message(for:error,applicationPath:Bundle.main.bundleURL.path)
+        }
+    }
+    var availableCaptureSources: [CaptureSource] { regionMode ? sources.filter{$0.display != nil} : sources }
+    var canStartRecording: Bool { !busy && !recording && !sourceID.isEmpty && (!regionMode || captureRegion != nil) }
+    func chooseRecordingRegion() async {
+        guard !busy, !recording, !quitting,
+              let display = sources.first(where:{$0.id == sourceID})?.display else { return }
+        guard let screen = NSScreen.screens.first(where:{ ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == display.displayID }) else {
+            error = "显示器已断开，请刷新列表后重试。"; return
+        }
+        busy = true
+        defer { busy = false }
+        let chosen = await regionSelector.select(on:screen,initial:captureRegion)
+        if let chosen {
+            do {
+                _ = try RecordingRegion(selection:chosen,displayBounds:display.frame,pixelScale:screen.backingScaleFactor)
+                captureRegion = chosen; regionDisplayBounds = display.frame
+            } catch { self.error = error.localizedDescription }
         }
     }
     func newRecording() { guard !recording && !busy && !exporting && !quitting else { return }; player.pause(); page = .capture; Task { await refreshSources() } }
@@ -95,6 +128,10 @@ final class AppModel: ObservableObject {
     }
     func startRecording() async {
         guard !busy, !recording, !quitting, let source = sources.first(where:{$0.id == sourceID}) else { return }
+        guard !regionMode || (captureRegion != nil && source.display?.frame == regionDisplayBounds) else {
+            error = "请先框选录制区域。"; return
+        }
+        let selectedRegion = regionMode ? captureRegion : nil
         busy = true; pendingCaptureError = nil
         do {
             let name = Date().formatted(.dateTime.year().month(.twoDigits).day(.twoDigits).hour().minute().second()).replacingOccurrences(of:"/",with:"-").replacingOccurrences(of:":",with:"-")
@@ -102,7 +139,7 @@ final class AppModel: ObservableObject {
             activeRecordingRoot = folder
             for value in (1...3).reversed() { countdown = value; try await Task.sleep(nanoseconds:1_000_000_000) }
             countdown = nil
-            try await capture.start(source:source,microphone:microphone,deviceID:microphoneID.isEmpty ? nil : microphoneID,destination:folder.appendingPathComponent("media/original.mov"))
+            try await capture.start(source:source,microphone:microphone,deviceID:microphoneID.isEmpty ? nil : microphoneID,destination:folder.appendingPathComponent("media/original.mov"),region:selectedRegion)
             recording = true; recordingStarted = Date(); busy = false
             if let pendingCaptureError { notice = "录制启动遇到问题：\(pendingCaptureError)"; await stopRecording() }
         } catch { countdown = nil; busy = false; self.error = error.localizedDescription }
@@ -295,6 +332,7 @@ final class AppModel: ObservableObject {
     func cancelExport() { exportTask?.cancel() }
     func prepareToQuit() async {
         quitting = true
+        regionSelector.cancel()
         if exporting { cancelExport() }
         await work.wait()
         if recording { await stopRecording() }

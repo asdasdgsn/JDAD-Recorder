@@ -5,7 +5,7 @@
 ## 环境与构建
 
 - macOS 15.7.1，Apple Silicon，Xcode / Swift 6.2.4，Swift 5 语言模式。
-- PASS：`swift test`，37 项 XCTest，0 失败（v0.3.1 权限诊断与签名修复）。详见 docs/evidence/permission-tests.log。
+- PASS：`swift test`，44 项 XCTest，0 失败（v0.4 区域录制）。详见 docs/evidence/region-tests.log。
 - PASS：`./scripts/build-app.sh`，release 编译、标准 `.app` 目录、应用图标、本机 ad-hoc 签名及签名校验。
 - PASS：最终打包应用已通过原生界面启动，重新打开保存的示例工程并生成预览。
 - 本轮最终编译与测试日志未出现 warning/error。
@@ -90,3 +90,13 @@
 - PASS：旧版已正常退出，旧安装包已备份至 dist/backups；新版 /Applications/Demo Recorder.app 启动显示 0.3.1，最近工程保留。
 - PENDING：新版实际获取屏幕列表仍被旧 TCC 记录拒绝，需要用户移除旧条目并重新添加/开启新版的系统权限。未替用户开关权限、重置全局 TCC、修改数据库或系统保护。尚不能声称真实录制已恢复。
 - Apple 依据：https://developer.apple.com/documentation/technotes/tn3127-inside-code-signing-requirements ，以及 https://developer.apple.com/forums/thread/819406 中 Apple DTS 的确认。
+
+## v0.4 指定区域录制
+
+- PASS：新增 7 项区域行为测试：Retina 点/像素换算、负坐标副屏、区域外点击过滤、非法和微小区域拒绝、输出偶数尺寸和长边上限、反向/分数坐标贴边框选、移动不改变大小。完整 44 项测试通过。
+- 独立只读审查发现两项取整问题：边缘超出一像素、移动时 integral 扩大尺寸。已改为端点先取整、移动只取整起点并保留宽高，并增加回归测试。
+- PASS：签名校验及 release 构建，更新至 /Applications/Demo Recorder.app；旧版保留在 dist/backups/Demo-Recorder-before-0.4.zip。
+- PASS：原生界面启动显示 0.4；实际成功读取显示器列表（2240 × 1260），没有重新授权提示。此前 TCC 授权绑定阻塞已不再阻止来源列表读取。
+- PASS：切换指定区域，未框选前开始录制禁用；点击框选打开透明浮层；Escape 取消后返回空闲录制界面。
+- NOT RUN：完整区域拖动→确认→实录→成片边界验证。原生自动化在全屏浮层返回 windowNotFoundAtPosition，无法发出拖动；已退出浮层，没有将该尝试记为成功。多显示器/混合 Retina 实录同样尚未验证。
+- 代码使用 ScreenCaptureKit 的 sourceRect（显示器局部逻辑点）直接裁切来源，鼠标采样按全局裁切矩形归一化；这两者通过几何测试，但仍需真实录制的像素核验。

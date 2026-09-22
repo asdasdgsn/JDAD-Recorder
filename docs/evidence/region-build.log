@@ -1,0 +1,13 @@
+[0/1] Planning build
+Building for production...
+[0/4] Write sources
+[2/4] Write swift-version--58304C5D6DBC2206.txt
+[4/5] Compiling RecorderCore AutoZoom.swift
+[5/6] Compiling RecorderMedia CapturePermissionGuidance.swift
+[6/7] Compiling RecorderApp AppModel.swift
+[6/8] Write Objects.LinkFileList
+[7/8] Linking DemoRecorder
+Build complete! (12.83s)
+/Users/guoshuainan/.codex/.chatgpt-projects/g-p-6ab1cd4d67c48191ac235227705f06ae/DemoRecorder/dist/v0.4/Demo Recorder.app: replacing existing signature
+PASS: certificate-backed signing identity verified.
+/Users/guoshuainan/.codex/.chatgpt-projects/g-p-6ab1cd4d67c48191ac235227705f06ae/DemoRecorder/dist/v0.4/Demo Recorder.app

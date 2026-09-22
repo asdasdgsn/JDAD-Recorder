@@ -74,9 +74,10 @@ final class FrameWriter: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked 
     private func fail(_ error: Error) { guard failure == nil else { return }; failure = error; onFailure?(error) }
     func stream(_ stream: SCStream,didStopWithError error: Error) { queue.async { self.fail(error) } }
     func failureSnapshot() -> Error? { queue.sync { failure } }
-    func mapPoint(_ point: CGPoint, fallback: CGRect, windowFrame: CGRect?) -> CGPoint? {
+    func mapPoint(_ point: CGPoint, fallback: CGRect, windowFrame: CGRect?, region: RecordingRegion? = nil) -> CGPoint? {
         queue.sync {
             guard firstPTS != nil else { return nil }
+            if let region { return region.normalizedPointer(point) }
             let rect = currentRect ?? fallback
             // Reject transient geometry while a moved/resized window is awaiting its next frame.
             if let actual = windowFrame, abs(actual.minX-rect.minX) > 2 || abs(actual.minY-rect.minY) > 2 || abs(actual.width-rect.width) > 2 || abs(actual.height-rect.height) > 2 { return nil }
@@ -131,7 +132,7 @@ public final class CaptureService {
         return displays+windows
     }
     public static var microphones: [AVCaptureDevice] { AVCaptureDevice.DiscoverySession(deviceTypes:[.microphone,.external],mediaType:.audio,position:.unspecified).devices }
-    public func start(source: CaptureSource,microphone: Bool,deviceID: String?,destination: URL) async throws {
+    public func start(source: CaptureSource,microphone: Bool,deviceID: String?,destination: URL,region: CGRect? = nil) async throws {
         guard stream == nil else { throw RecorderError.message("已有正在进行的录制。") }
         if microphone {
             let allowed = await AVCaptureDevice.requestAccess(for:.audio)
@@ -144,8 +145,21 @@ public final class CaptureService {
         let config = SCStreamConfiguration()
         let rect = filter.contentRect
         let scale = Double(filter.pointPixelScale)
-        let reduction = min(1,3840/max(rect.width*scale,rect.height*scale))
-        config.width = max(2,Int(rect.width*scale*reduction)/2*2); config.height = max(2,Int(rect.height*scale*reduction)/2*2)
+        let selectedRegion: RecordingRegion?
+        if let region {
+            guard let display = source.display else { throw RecorderError.message("区域录制请选择显示器。") }
+            guard CGDisplayIsActive(display.displayID) != 0, CGDisplayBounds(display.displayID) == display.frame else {
+                throw RecorderError.message("显示器已变化，请刷新列表并重新框选。")
+            }
+            selectedRegion = try RecordingRegion(selection:region,displayBounds:display.frame,pixelScale:scale)
+        } else { selectedRegion = nil }
+        if let selectedRegion {
+            config.sourceRect = selectedRegion.sourceRect
+            config.width = Int(selectedRegion.outputSize.width); config.height = Int(selectedRegion.outputSize.height)
+        } else {
+            let reduction = min(1,3840/max(rect.width*scale,rect.height*scale))
+            config.width = max(2,Int(rect.width*scale*reduction)/2*2); config.height = max(2,Int(rect.height*scale*reduction)/2*2)
+        }
         config.minimumFrameInterval = CMTime(value:1,timescale:30)
         config.pixelFormat = kCVPixelFormatType_32BGRA
         config.queueDepth = 5; config.showsCursor = true; config.capturesAudio = false
@@ -172,7 +186,7 @@ public final class CaptureService {
                 guard let list = CGWindowListCopyWindowInfo([.optionIncludingWindow],window.windowID) as? [[String:Any]],let info = list.first,let bounds = info[kCGWindowBounds as String] as? [String:Any] else { return nil }
                 actual = CGRect(dictionaryRepresentation:bounds as CFDictionary)
             }
-            return writer?.mapPoint(point,fallback:sourceRect,windowFrame:actual)
+            return writer?.mapPoint(point,fallback:sourceRect,windowFrame:actual,region:selectedRegion)
         }
         do {
             try await stream.startCapture()

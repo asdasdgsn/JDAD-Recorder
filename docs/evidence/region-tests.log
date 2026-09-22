@@ -1,0 +1,137 @@
+Building for debugging...
+[0/6] Write sources
+[2/6] Write swift-version--58304C5D6DBC2206.txt
+[4/8] Compiling RecorderCore RecordingRegion.swift
+[5/8] Emitting module RecorderCore
+[6/13] Emitting module RecorderCoreTests
+[7/13] Compiling RecorderCoreTests RecordingRegionTests.swift
+[8/13] Emitting module RecorderMedia
+[9/13] Compiling RecorderMedia CaptureService.swift
+[10/19] Emitting module RecorderApp
+[11/19] Compiling RecorderMediaTests MediaTests.swift
+[12/19] Emitting module RecorderMediaTests
+[12/19] Write Objects.LinkFileList
+[14/19] Compiling RecorderApp RootView.swift
+[15/19] Compiling RecorderApp AppModel.swift
+[16/19] Compiling RecorderApp RegionSelector.swift
+[16/20] Write Objects.LinkFileList
+[17/20] Linking DemoRecorderPackageTests
+[18/20] Linking DemoRecorder
+[19/20] Applying DemoRecorder
+Build complete! (4.38s)
+Test Suite 'All tests' started at 2026-09-22 10:32:41.853.
+Test Suite 'DemoRecorderPackageTests.xctest' started at 2026-09-22 10:32:41.854.
+Test Suite 'CapturePermissionTests' started at 2026-09-22 10:32:41.854.
+Test Case '-[RecorderMediaTests.CapturePermissionTests testOtherErrorsDoNotMisdiagnosePermission]' started.
+Test Case '-[RecorderMediaTests.CapturePermissionTests testOtherErrorsDoNotMisdiagnosePermission]' passed (0.002 seconds).
+Test Case '-[RecorderMediaTests.CapturePermissionTests testTCCDenialExplainsEnabledButStalePermissionAndCurrentApp]' started.
+Test Case '-[RecorderMediaTests.CapturePermissionTests testTCCDenialExplainsEnabledButStalePermissionAndCurrentApp]' passed (0.000 seconds).
+Test Suite 'CapturePermissionTests' passed at 2026-09-22 10:32:41.856.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'CoreTests' started at 2026-09-22 10:32:41.856.
+Test Case '-[RecorderCoreTests.CoreTests testCameraTrackUsesSourceTimeAfterCut]' started.
+Test Case '-[RecorderCoreTests.CoreTests testCameraTrackUsesSourceTimeAfterCut]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.CoreTests testCaptureAttemptRetainsEarlyFailureAndRejectsStaleCallback]' started.
+Test Case '-[RecorderCoreTests.CoreTests testCaptureAttemptRetainsEarlyFailureAndRejectsStaleCallback]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.CoreTests testClicksMergeAndEdgesRemainInBounds]' started.
+Test Case '-[RecorderCoreTests.CoreTests testClicksMergeAndEdgesRemainInBounds]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.CoreTests testCompletionGateWaitsForExistingSaveAndCancellationCleanup]' started.
+Test Case '-[RecorderCoreTests.CoreTests testCompletionGateWaitsForExistingSaveAndCancellationCleanup]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.CoreTests testDeleteMiddlePreservesSourceTime]' started.
+Test Case '-[RecorderCoreTests.CoreTests testDeleteMiddlePreservesSourceTime]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.CoreTests testHistoryRestoresEdits]' started.
+Test Case '-[RecorderCoreTests.CoreTests testHistoryRestoresEdits]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.CoreTests testLetterboxedWindowMappingUsesActualContentRectangle]' started.
+Test Case '-[RecorderCoreTests.CoreTests testLetterboxedWindowMappingUsesActualContentRectangle]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.CoreTests testMappingNegativeOriginAndChangedWindow]' started.
+Test Case '-[RecorderCoreTests.CoreTests testMappingNegativeOriginAndChangedWindow]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.CoreTests testProjectRejectsUnsafeAndInvalidMetadata]' started.
+Test Case '-[RecorderCoreTests.CoreTests testProjectRejectsUnsafeAndInvalidMetadata]' passed (0.002 seconds).
+Test Case '-[RecorderCoreTests.CoreTests testRejectsUnrepresentableProjectDuration]' started.
+Test Case '-[RecorderCoreTests.CoreTests testRejectsUnrepresentableProjectDuration]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.CoreTests testRetainAcrossCutAndEmpty]' started.
+Test Case '-[RecorderCoreTests.CoreTests testRetainAcrossCutAndEmpty]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.CoreTests testRetinaContentPointsConvertToOutputPixels]' started.
+Test Case '-[RecorderCoreTests.CoreTests testRetinaContentPointsConvertToOutputPixels]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.CoreTests testTenMinuteCameraTrackHasBoundedOutput]' started.
+Test Case '-[RecorderCoreTests.CoreTests testTenMinuteCameraTrackHasBoundedOutput]' passed (0.051 seconds).
+Test Suite 'CoreTests' passed at 2026-09-22 10:32:41.911.
+	 Executed 13 tests, with 0 failures (0 unexpected) in 0.055 (0.055) seconds
+Test Suite 'FocusFramingTests' started at 2026-09-22 10:32:41.911.
+Test Case '-[RecorderCoreTests.FocusFramingTests testCropStaysInsideSourceAndMatchesRenderedCamera]' started.
+Test Case '-[RecorderCoreTests.FocusFramingTests testCropStaysInsideSourceAndMatchesRenderedCamera]' passed (0.001 seconds).
+Test Case '-[RecorderCoreTests.FocusFramingTests testDragPreservesGrabOffsetAndClampsAtEdge]' started.
+Test Case '-[RecorderCoreTests.FocusFramingTests testDragPreservesGrabOffsetAndClampsAtEdge]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.FocusFramingTests testPortraitImageAndTopLeftCoordinates]' started.
+Test Case '-[RecorderCoreTests.FocusFramingTests testPortraitImageAndTopLeftCoordinates]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.FocusFramingTests testWideVideoUsesActualImageBoundsAndIgnoresLetterbox]' started.
+Test Case '-[RecorderCoreTests.FocusFramingTests testWideVideoUsesActualImageBoundsAndIgnoresLetterbox]' passed (0.000 seconds).
+Test Suite 'FocusFramingTests' passed at 2026-09-22 10:32:41.913.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'MediaTests' started at 2026-09-22 10:32:41.913.
+Test Case '-[RecorderMediaTests.MediaTests testAudioStaysAlignedAfterReorderAndCut]' started.
+Test Case '-[RecorderMediaTests.MediaTests testAudioStaysAlignedAfterReorderAndCut]' passed (0.915 seconds).
+Test Case '-[RecorderMediaTests.MediaTests testCancelledExportPreservesExistingDestination]' started.
+Test Case '-[RecorderMediaTests.MediaTests testCancelledExportPreservesExistingDestination]' passed (0.098 seconds).
+Test Case '-[RecorderMediaTests.MediaTests testExportRefusesSymlinkToOriginal]' started.
+Test Case '-[RecorderMediaTests.MediaTests testExportRefusesSymlinkToOriginal]' passed (0.002 seconds).
+Test Case '-[RecorderMediaTests.MediaTests testExportsRealCutMP4AndGIF]' started.
+Test Case '-[RecorderMediaTests.MediaTests testExportsRealCutMP4AndGIF]' passed (0.639 seconds).
+Test Case '-[RecorderMediaTests.MediaTests testMidGIFCancellationRemovesTemporaryFilesAndPreservesDestination]' started.
+Test Case '-[RecorderMediaTests.MediaTests testMidGIFCancellationRemovesTemporaryFilesAndPreservesDestination]' passed (0.139 seconds).
+Test Case '-[RecorderMediaTests.MediaTests testProjectRoundTripAndMove]' started.
+Test Case '-[RecorderMediaTests.MediaTests testProjectRoundTripAndMove]' passed (0.006 seconds).
+Test Case '-[RecorderMediaTests.MediaTests testRecordingRetainsStaticTail]' started.
+Test Case '-[RecorderMediaTests.MediaTests testRecordingRetainsStaticTail]' passed (0.138 seconds).
+Test Case '-[RecorderMediaTests.MediaTests testRecoverIncompleteReadableRecording]' started.
+Test Case '-[RecorderMediaTests.MediaTests testRecoverIncompleteReadableRecording]' passed (0.099 seconds).
+Test Case '-[RecorderMediaTests.MediaTests testReorderedMP4AndGIFKeepFocusWithSourceClip]' started.
+Test Case '-[RecorderMediaTests.MediaTests testReorderedMP4AndGIFKeepFocusWithSourceClip]' passed (0.598 seconds).
+Test Suite 'MediaTests' passed at 2026-09-22 10:32:44.547.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 2.633 (2.634) seconds
+Test Suite 'RecordingRegionTests' started at 2026-09-22 10:32:44.547.
+Test Case '-[RecorderCoreTests.RecordingRegionTests testFractionalDragToDisplayEdgeNeverExceedsBounds]' started.
+Test Case '-[RecorderCoreTests.RecordingRegionTests testFractionalDragToDisplayEdgeNeverExceedsBounds]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.RecordingRegionTests testMovingAtFractionalCoordinatesDoesNotGrowRegion]' started.
+Test Case '-[RecorderCoreTests.RecordingRegionTests testMovingAtFractionalCoordinatesDoesNotGrowRegion]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.RecordingRegionTests testOutputIsEvenAndCappedWithoutUsingFullScreenSize]' started.
+Test Case '-[RecorderCoreTests.RecordingRegionTests testOutputIsEvenAndCappedWithoutUsingFullScreenSize]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.RecordingRegionTests testRejectsTinyOutsideOrInvalidRegion]' started.
+Test Case '-[RecorderCoreTests.RecordingRegionTests testRejectsTinyOutsideOrInvalidRegion]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.RecordingRegionTests testRetinaCropUsesLocalPointsButProducesPixels]' started.
+Test Case '-[RecorderCoreTests.RecordingRegionTests testRetinaCropUsesLocalPointsButProducesPixels]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.RecordingRegionTests testReverseDragClampsToScreenEdges]' started.
+Test Case '-[RecorderCoreTests.RecordingRegionTests testReverseDragClampsToScreenEdges]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.RecordingRegionTests testSecondaryScreenWithNegativeOriginUsesSameTopLeftCoordinates]' started.
+Test Case '-[RecorderCoreTests.RecordingRegionTests testSecondaryScreenWithNegativeOriginUsesSameTopLeftCoordinates]' passed (0.000 seconds).
+Test Suite 'RecordingRegionTests' passed at 2026-09-22 10:32:44.548.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'TimelineEditingTests' started at 2026-09-22 10:32:44.548.
+Test Case '-[RecorderCoreTests.TimelineEditingTests testCutAfterReorderPreservesOutputOrder]' started.
+Test Case '-[RecorderCoreTests.TimelineEditingTests testCutAfterReorderPreservesOutputOrder]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.TimelineEditingTests testHistoryRoundTripsSplitReorderAndResize]' started.
+Test Case '-[RecorderCoreTests.TimelineEditingTests testHistoryRoundTripsSplitReorderAndResize]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.TimelineEditingTests testMoveClosesGapsAndMapsBothDirections]' started.
+Test Case '-[RecorderCoreTests.TimelineEditingTests testMoveClosesGapsAndMapsBothDirections]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.TimelineEditingTests testReorderedProjectValidatesButOverlappingSourceDoesNot]' started.
+Test Case '-[RecorderCoreTests.TimelineEditingTests testReorderedProjectValidatesButOverlappingSourceDoesNot]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.TimelineEditingTests testResizeClippedZoomLeavesOtherClipTimingAndCameraUntouched]' started.
+Test Case '-[RecorderCoreTests.TimelineEditingTests testResizeClippedZoomLeavesOtherClipTimingAndCameraUntouched]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.TimelineEditingTests testResizeDoesNotChangeAutomaticFollowOnUntouchedClip]' started.
+Test Case '-[RecorderCoreTests.TimelineEditingTests testResizeDoesNotChangeAutomaticFollowOnUntouchedClip]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.TimelineEditingTests testResizeZoomClampsAtNeighborsAndRemainsEditableAfterReorder]' started.
+Test Case '-[RecorderCoreTests.TimelineEditingTests testResizeZoomClampsAtNeighborsAndRemainsEditableAfterReorder]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.TimelineEditingTests testSnapUsesVisualToleranceAndFrameRounding]' started.
+Test Case '-[RecorderCoreTests.TimelineEditingTests testSnapUsesVisualToleranceAndFrameRounding]' passed (0.000 seconds).
+Test Case '-[RecorderCoreTests.TimelineEditingTests testSplitPreservesFrameMappingAndRejectsBoundarySlivers]' started.
+Test Case '-[RecorderCoreTests.TimelineEditingTests testSplitPreservesFrameMappingAndRejectsBoundarySlivers]' passed (0.000 seconds).
+Test Suite 'TimelineEditingTests' passed at 2026-09-22 10:32:44.550.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
+Test Suite 'DemoRecorderPackageTests.xctest' passed at 2026-09-22 10:32:44.550.
+	 Executed 44 tests, with 0 failures (0 unexpected) in 2.692 (2.696) seconds
+Test Suite 'All tests' passed at 2026-09-22 10:32:44.550.
+	 Executed 44 tests, with 0 failures (0 unexpected) in 2.692 (2.697) seconds
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.
