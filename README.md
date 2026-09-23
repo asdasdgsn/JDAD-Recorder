@@ -72,6 +72,11 @@ Mac 的聚焦设置时间使用原始素材秒数，剪辑选区使用成片秒�
 
 ## 从源码开发
 
+```sh
+git clone https://github.com/asdasdgsn/JDAD-Recorder.git
+cd JDAD-Recorder
+```
+
 ### Mac 原生版
 
 需要 macOS 15+、Xcode / Swift 6 工具链。项目使用 Swift 5 语言兼容模式，无第三方运行时依赖。
@@ -175,6 +180,10 @@ Windows 版随包提供 Electron 和 FFmpeg/ffprobe；Mac 版使用系统媒体�
 | Windows 0.1.0 | 独立 Windows 团队预览实现与 EXE / ZIP 打包 |
 
 Mac 0.1 工程可由新版打开；使用新版剪辑功能后可能升级为版本 2，旧版不支持读取升级后的工程。
+
+## 反馈问题
+
+请在 [GitHub Issues](https://github.com/asdasdgsn/JDAD-Recorder/issues) 描述应用版本、操作系统、录制来源（屏幕/窗口/区域）、复现步骤和实际结果。多屏或聚焦偏移问题请补充显示器缩放比例。分享日志或示例视频前请移除私人内容。
 
 ## 许可与分发
 
